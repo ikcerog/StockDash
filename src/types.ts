@@ -5,6 +5,9 @@ export interface Env {
   FRED_API_KEY?: string;
   ALERT_EMAIL: string;
   ALERT_FROM_EMAIL: string;
+  ACCESS_TEAM_DOMAIN?: string;
+  ACCESS_AUD?: string;
+  ACCESS_DEV_BYPASS?: string;
 }
 
 export interface WatchlistItem {

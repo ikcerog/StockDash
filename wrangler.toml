@@ -20,3 +20,8 @@ crons = ["*/15 13-21 * * 1-5"]
 [vars]
 ALERT_EMAIL = "johnagorecki@gmail.com"
 ALERT_FROM_EMAIL = "StockDash <onboarding@resend.dev>"
+# Cloudflare Access app protecting this Worker's workers.dev route. The AUD
+# tag comes from the Access application (Workers dashboard > Domains >
+# Restricted, or Zero Trust > Access > Applications). Not secrets.
+ACCESS_TEAM_DOMAIN = "johnagorecki"
+ACCESS_AUD = "eae864422b7d3aa4ed9309aad25003c9b7fe095d9fc7c56faf3582221eb93117"
