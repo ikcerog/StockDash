@@ -61,6 +61,24 @@ application; update `ACCESS_AUD` if the Access app is ever deleted and
 recreated (the AUD tag is shown in the Restricted dialog on the Domains tab,
 or under Zero Trust > Access > Applications).
 
+## Accounts / multiple users
+
+There is no separate account system: a user's identity is the verified
+email in their Access JWT. Watchlists, thresholds, alert history, and alert
+emails are all scoped to that email (`user_email` columns in D1), so each
+signed-in user sees only their own data and gets alerts at their own
+address.
+
+To add a user, add their email to the Access application's allow policy
+(Zero Trust > Access > Applications, or Manage Cloudflare Access from the
+Worker's Domains tab). They sign in with the same one-time-PIN flow — no
+signup or password anywhere.
+
+**Email caveat**: the default `onboarding@resend.dev` sender only delivers
+to the Resend account owner's own address. Before adding other users,
+verify a domain in Resend (free tier: 1 domain, 100 emails/day) and change
+`ALERT_FROM_EMAIL` in `wrangler.toml` to an address on that domain.
+
 ## Local development
 
 ```bash
@@ -74,6 +92,8 @@ locally:
 
 ```
 ACCESS_DEV_BYPASS=true
+# Optional: which user to act as locally (defaults to dev@localhost)
+ACCESS_DEV_EMAIL=johnagorecki@gmail.com
 ```
 
 `wrangler dev` runs the Worker against a local D1 instance and serves the

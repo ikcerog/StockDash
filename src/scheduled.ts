@@ -1,5 +1,5 @@
 import type { AlertType, Env, WatchlistItem } from "./types";
-import { isAlertActive, listWatchlist, logAlert, setAlertActive } from "./lib/db";
+import { isAlertActive, listAllWatchlist, logAlert, setAlertActive } from "./lib/db";
 import { fetchQuotes, type Quote } from "./lib/yahoo";
 import { sendAlertEmail } from "./lib/resend";
 
@@ -47,7 +47,7 @@ function evaluateConditions(item: WatchlistItem, quote: Quote): Condition[] {
 }
 
 export async function runAlertCheck(env: Env): Promise<void> {
-  const items = await listWatchlist(env.DB);
+  const items = await listAllWatchlist(env.DB);
   const withThresholds = items.filter(
     (item) => item.price_high !== null || item.price_low !== null || item.percent_change_threshold !== null,
   );
@@ -67,11 +67,13 @@ export async function runAlertCheck(env: Env): Promise<void> {
         try {
           await sendAlertEmail(
             env,
+            item.user_email,
             `StockDash alert: ${item.symbol}`,
             `<p>${message}</p><p>Current price: $${quote.price.toFixed(2)} (${quote.changePercent >= 0 ? "+" : ""}${quote.changePercent.toFixed(2)}% today)</p>`,
           );
           await logAlert(env.DB, {
             watchlist_id: item.id,
+            user_email: item.user_email,
             symbol: item.symbol,
             alert_type: condition.type,
             message,

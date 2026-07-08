@@ -18,7 +18,10 @@ database_id = "c8cb1355-ff85-4634-822a-eae233c90f8b"
 crons = ["*/15 13-21 * * 1-5"]
 
 [vars]
-ALERT_EMAIL = "johnagorecki@gmail.com"
+# Alert emails go to each watchlist entry's owner (their Access login email).
+# NOTE: the shared onboarding@resend.dev sender can only deliver to the Resend
+# account owner's address — emailing other users requires a verified domain
+# in Resend and a from address on that domain.
 ALERT_FROM_EMAIL = "StockDash <onboarding@resend.dev>"
 # Cloudflare Access app protecting this Worker's workers.dev route. The AUD
 # tag comes from the Access application (Workers dashboard > Domains >

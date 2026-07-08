@@ -226,5 +226,11 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
+api("/api/me")
+  .then((me) => {
+    document.getElementById("user-email").textContent = me.email;
+  })
+  .catch(() => {});
+
 refreshAll();
 setInterval(refreshAll, 60_000);

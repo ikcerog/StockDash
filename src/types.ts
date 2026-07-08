@@ -3,15 +3,23 @@ export interface Env {
   ASSETS: Fetcher;
   RESEND_API_KEY?: string;
   FRED_API_KEY?: string;
-  ALERT_EMAIL: string;
   ALERT_FROM_EMAIL: string;
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;
   ACCESS_DEV_BYPASS?: string;
+  ACCESS_DEV_EMAIL?: string;
 }
+
+// Hono context: userEmail is the verified email from the Access JWT,
+// attached by the requireAccessJwt middleware.
+export type AppEnv = {
+  Bindings: Env;
+  Variables: { userEmail: string };
+};
 
 export interface WatchlistItem {
   id: number;
+  user_email: string;
   symbol: string;
   label: string | null;
   shares: number | null;
@@ -35,6 +43,7 @@ export type AlertType = "price_high" | "price_low" | "percent_change";
 export interface AlertLogEntry {
   id: number;
   watchlist_id: number;
+  user_email: string;
   symbol: string;
   alert_type: AlertType;
   message: string;

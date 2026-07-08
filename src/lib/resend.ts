@@ -1,7 +1,7 @@
 import type { Env } from "../types";
 import { getSetting } from "./db";
 
-export async function sendAlertEmail(env: Env, subject: string, html: string): Promise<void> {
+export async function sendAlertEmail(env: Env, to: string, subject: string, html: string): Promise<void> {
   // Prefer the key stored in D1 settings; fall back to the Workers secret.
   // (D1 first so an updated key takes effect without touching secrets.)
   const d1Key = await getSetting(env.DB, "RESEND_API_KEY");
@@ -19,7 +19,7 @@ export async function sendAlertEmail(env: Env, subject: string, html: string): P
     },
     body: JSON.stringify({
       from: env.ALERT_FROM_EMAIL,
-      to: [env.ALERT_EMAIL],
+      to: [to],
       subject,
       html,
     }),
