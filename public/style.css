@@ -110,6 +110,22 @@ main {
   font-weight: 600;
 }
 
+.rates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.rates .stat-card { border: none; padding: 0; }
+
+.rate-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);

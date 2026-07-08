@@ -124,6 +124,39 @@ async function renderAlertLog() {
     .join("");
 }
 
+async function renderRates() {
+  const container = document.getElementById("rates-cards");
+  try {
+    const rates = await api("/api/rates");
+    if (rates.length === 0) {
+      container.innerHTML = `<span class="muted">No rate data available.</span>`;
+      return;
+    }
+    container.innerHTML = rates
+      .map((r) => {
+        const change = r.previous !== null ? r.value - r.previous : null;
+        const changeClass = change !== null && change < 0 ? "down" : "up";
+        return `
+          <div class="stat-card">
+            <div class="label">${r.label}</div>
+            <div class="value">${r.value.toFixed(2)}%</div>
+            <div class="rate-meta">
+              ${
+                change !== null
+                  ? `<span class="${changeClass}">${change >= 0 ? "+" : ""}${change.toFixed(2)}</span>`
+                  : ""
+              }
+              <span class="muted">as of ${new Date(r.date + "T00:00:00").toLocaleDateString()}</span>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  } catch (err) {
+    container.innerHTML = `<span class="muted">Rates unavailable: ${err.message}</span>`;
+  }
+}
+
 async function loadWatchlist() {
   rows = await api("/api/quotes");
   renderSummary();
@@ -132,7 +165,7 @@ async function loadWatchlist() {
 }
 
 async function refreshAll() {
-  await Promise.all([loadWatchlist(), renderAlertLog()]);
+  await Promise.all([loadWatchlist(), renderAlertLog(), renderRates()]);
 }
 
 function openDialog(row) {
