@@ -10,7 +10,7 @@ run_worker_first = ["/api/*"]
 [[d1_databases]]
 binding = "DB"
 database_name = "stockdash-db"
-database_id = "REPLACE_AFTER_D1_CREATE"
+database_id = "c8cb1355-ff85-4634-822a-eae233c90f8b"
 
 [triggers]
 # Every 15 min, 13:00-21:59 UTC, Mon-Fri — covers US market hours (9:30am-4pm ET)
