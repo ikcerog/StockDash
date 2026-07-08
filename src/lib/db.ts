@@ -99,6 +99,16 @@ export async function logAlert(
     .run();
 }
 
+export async function getSetting(db: D1Database, key: string): Promise<string | null> {
+  try {
+    const row = await db.prepare("SELECT value FROM settings WHERE key = ?").bind(key).first<{ value: string }>();
+    return row?.value ?? null;
+  } catch {
+    // settings table may not exist yet
+    return null;
+  }
+}
+
 export async function listAlertLog(db: D1Database, limit = 50): Promise<AlertLogEntry[]> {
   const { results } = await db
     .prepare("SELECT * FROM alert_log ORDER BY sent_at DESC LIMIT ?")
