@@ -188,6 +188,22 @@ document.getElementById("add-stock-btn").addEventListener("click", () => openDia
 document.getElementById("cancel-btn").addEventListener("click", () => dialog.close());
 document.getElementById("refresh-btn").addEventListener("click", () => refreshAll());
 
+document.getElementById("test-email-btn").addEventListener("click", async (e) => {
+  const btn = e.target;
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  try {
+    const result = await api("/api/alerts/test", { method: "POST" });
+    btn.textContent = `Sent to ${result.to}`;
+  } catch (err) {
+    btn.textContent = "Send test email";
+    alert(`Test email failed: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => (btn.textContent = "Send test email"), 5000);
+  }
+});
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(form).entries());
