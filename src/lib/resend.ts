@@ -2,11 +2,14 @@ import type { Env } from "../types";
 import { getSetting } from "./db";
 
 export async function sendAlertEmail(env: Env, subject: string, html: string): Promise<void> {
-  // Prefer the Workers secret; fall back to the key stored in D1 settings.
-  const apiKey = env.RESEND_API_KEY || (await getSetting(env.DB, "RESEND_API_KEY"));
+  // Prefer the key stored in D1 settings; fall back to the Workers secret.
+  // (D1 first so an updated key takes effect without touching secrets.)
+  const d1Key = await getSetting(env.DB, "RESEND_API_KEY");
+  const apiKey = d1Key || env.RESEND_API_KEY;
   if (!apiKey) {
     throw new Error("Resend API key is not configured");
   }
+  const keySource = d1Key ? "D1 settings" : "Workers secret";
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -24,6 +27,6 @@ export async function sendAlertEmail(env: Env, subject: string, html: string): P
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Resend request failed (${res.status}): ${text}`);
+    throw new Error(`Resend request failed (${res.status}, key from ${keySource}): ${text}`);
   }
 }
