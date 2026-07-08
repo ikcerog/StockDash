@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>StockDash</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>StockDash</h1>
+    <div class="topbar-actions">
+      <span id="last-updated" class="muted"></span>
+      <button id="refresh-btn" class="btn btn-ghost">Refresh</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary" id="summary-cards"></section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Watchlist</h2>
+        <button id="add-stock-btn" class="btn btn-primary">+ Add stock</button>
+      </div>
+      <div class="table-wrap">
+        <table id="watchlist-table">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Price</th>
+              <th>Day change</th>
+              <th>Shares</th>
+              <th>Value</th>
+              <th>High alert</th>
+              <th>Low alert</th>
+              <th>% change alert</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="watchlist-body">
+            <tr><td colspan="9" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Recent alerts</h2>
+      </div>
+      <ul id="alert-log" class="alert-log">
+        <li class="muted">Loading…</li>
+      </ul>
+    </section>
+  </main>
+
+  <dialog id="stock-dialog">
+    <form id="stock-form" method="dialog">
+      <h2 id="dialog-title">Add stock</h2>
+      <input type="hidden" name="id" />
+
+      <label>Symbol
+        <input type="text" name="symbol" placeholder="AAPL" required autocomplete="off" />
+      </label>
+      <label>Label <span class="muted">(optional)</span>
+        <input type="text" name="label" placeholder="Apple Inc." autocomplete="off" />
+      </label>
+      <label>Shares held <span class="muted">(optional)</span>
+        <input type="number" step="any" name="shares" placeholder="10" />
+      </label>
+
+      <fieldset>
+        <legend>Alerts <span class="muted">(leave blank to disable)</span></legend>
+        <label>Email me if price rises to or above
+          <input type="number" step="any" name="price_high" placeholder="e.g. 250" />
+        </label>
+        <label>Email me if price falls to or below
+          <input type="number" step="any" name="price_low" placeholder="e.g. 180" />
+        </label>
+        <label>Email me if day change exceeds ±
+          <input type="number" step="any" min="0" name="percent_change_threshold" placeholder="e.g. 5" />%
+        </label>
+      </fieldset>
+
+      <div class="dialog-actions">
+        <button type="button" id="cancel-btn" class="btn btn-ghost">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+name = "stockdash"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "stockdash-db"
+database_id = "REPLACE_AFTER_D1_CREATE"
+
+[triggers]
+# Every 15 min, 13:00-21:59 UTC, Mon-Fri — covers US market hours (9:30am-4pm ET)
+# across both EDT and EST without needing DST-aware logic.
+crons = ["*/15 13-21 * * 1-5"]
+
+[vars]
+ALERT_EMAIL = "johnagorecki@gmail.com"
+ALERT_FROM_EMAIL = "StockDash <onboarding@resend.dev>"

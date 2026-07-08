@@ -1,0 +1,22 @@
+{
+  "name": "stockdash",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stock/portfolio watchlist tracker with email alerts, running on Cloudflare Workers + D1.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply stockdash-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply stockdash-db --remote",
+    "tail": "wrangler tail",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260706.1",
+    "typescript": "^5.6.3",
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "hono": "^4.6.9"
+  }
+}
