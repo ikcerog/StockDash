@@ -5,9 +5,11 @@ import { quotesRoutes } from "./api/quotes";
 import { alertsRoutes } from "./api/alerts";
 import { ratesRoutes } from "./api/rates";
 import { runAlertCheck } from "./scheduled";
+import { requireAccessJwt } from "./lib/access";
 
 const app = new Hono<{ Bindings: Env }>();
 
+app.use("*", requireAccessJwt);
 app.route("/api/watchlist", watchlistRoutes);
 app.route("/api/quotes", quotesRoutes);
 app.route("/api/alerts", alertsRoutes);

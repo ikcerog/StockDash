@@ -47,11 +47,33 @@ npm run deploy
 After deploying, `wrangler` prints your Worker's `*.workers.dev` URL — open
 it to use the dashboard.
 
+## Authentication (Cloudflare Access)
+
+The deployed Worker sits behind [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/access-controls/):
+the `workers.dev` route is set to **Restricted** in the Workers dashboard
+(Domains tab), so visitors must sign in before reaching the app. As defense
+in depth, the Worker also verifies the `Cf-Access-Jwt-Assertion` header on
+every request it handles (`src/lib/access.ts`) — if the route were ever
+flipped back to Public, the API would still reject unauthenticated requests.
+
+`ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` in `wrangler.toml` identify the Access
+application; update `ACCESS_AUD` if the Access app is ever deleted and
+recreated (the AUD tag is shown in the Restricted dialog on the Domains tab,
+or under Zero Trust > Access > Applications).
+
 ## Local development
 
 ```bash
 npm run db:migrate:local
 npm run dev
+```
+
+`wrangler dev` has no Access layer in front of it, so requests carry no
+Access JWT. Create a `.dev.vars` file (gitignored) to bypass the JWT check
+locally:
+
+```
+ACCESS_DEV_BYPASS=true
 ```
 
 `wrangler dev` runs the Worker against a local D1 instance and serves the
