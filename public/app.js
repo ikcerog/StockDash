@@ -10,10 +10,10 @@ const fmtAxisDate = (value) =>
 
 const uniqueTicks = (values) => [...new Set(values.map((v) => v.toFixed(6)))].map(parseFloat);
 
-const APP_VERSION = "1.7.0";
+const APP_VERSION = "1.8.0";
 const CHANGELOG = [
   {
-    version: "1.7.0",
+    version: "1.8.0",
     date: "2026-07-09",
     notes: [
       "% day-change alerts now accept a comma-separated list of thresholds (e.g. 1, 3, 5, 10), each firing its own email when crossed.",
