@@ -1,6 +1,12 @@
 import { Hono } from "hono";
 import type { AppEnv, WatchlistInput } from "../types";
-import { createWatchlistItem, deleteWatchlistItem, listWatchlist, updateWatchlistItem } from "../lib/db";
+import {
+  createWatchlistItem,
+  deleteWatchlistItem,
+  ensureBaselineSeeded,
+  listWatchlist,
+  updateWatchlistItem,
+} from "../lib/db";
 
 export const watchlistRoutes = new Hono<AppEnv>();
 
@@ -33,6 +39,7 @@ function parsePartialInput(body: unknown): Partial<WatchlistInput> {
 }
 
 watchlistRoutes.get("/", async (c) => {
+  await ensureBaselineSeeded(c.env.DB, c.get("userEmail"));
   const items = await listWatchlist(c.env.DB, c.get("userEmail"));
   return c.json(items);
 });

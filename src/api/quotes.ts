@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../types";
-import { listWatchlist } from "../lib/db";
+import { ensureBaselineSeeded, listWatchlist } from "../lib/db";
 import { fetchQuotes } from "../lib/yahoo";
 
 export const quotesRoutes = new Hono<AppEnv>();
 
 quotesRoutes.get("/", async (c) => {
+  await ensureBaselineSeeded(c.env.DB, c.get("userEmail"));
   const items = await listWatchlist(c.env.DB, c.get("userEmail"));
   const quotes = await fetchQuotes(items.map((item) => item.symbol));
 

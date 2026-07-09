@@ -1,5 +1,26 @@
 import type { AlertLogEntry, AlertType, WatchlistInput, WatchlistItem } from "../types";
 
+// Copy the baseline symbols into a user's watchlist on their first visit.
+// user_seeded records who has been seeded, so users who later delete a
+// baseline stock don't get it re-added.
+export async function ensureBaselineSeeded(db: D1Database, userEmail: string): Promise<void> {
+  const seeded = await db
+    .prepare("SELECT 1 AS one FROM user_seeded WHERE user_email = ?")
+    .bind(userEmail)
+    .first();
+  if (seeded) return;
+
+  await db.batch([
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO watchlist (user_email, symbol, label)
+         SELECT ?, symbol, label FROM baseline_watchlist`,
+      )
+      .bind(userEmail),
+    db.prepare("INSERT OR IGNORE INTO user_seeded (user_email) VALUES (?)").bind(userEmail),
+  ]);
+}
+
 export async function listWatchlist(db: D1Database, userEmail: string): Promise<WatchlistItem[]> {
   const { results } = await db
     .prepare("SELECT * FROM watchlist WHERE user_email = ? ORDER BY symbol ASC")
