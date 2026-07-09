@@ -206,10 +206,13 @@ body.chart-open main { max-width: 1400px; }
 }
 
 .workspace.chart-visible {
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: minmax(280px, 1fr) minmax(360px, 2fr);
 }
 
-@media (max-width: 900px) {
+/* Only stack on genuinely small screens — this used to trip at 900px,
+   which browser zoom above 100% could hit even on a full-width desktop
+   window, making the chart drop below the table instead of beside it. */
+@media (max-width: 640px) {
   .workspace.chart-visible { grid-template-columns: 1fr; }
 }
 
