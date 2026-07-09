@@ -11,6 +11,21 @@ export async function sendAlertEmail(env: Env, to: string, subject: string, html
   }
   const keySource = d1Key ? "D1 settings" : "Workers secret";
 
+  // The shared onboarding@resend.dev sender is sandboxed: Resend will only
+  // deliver to the account owner's own address until a custom domain is
+  // verified. Short-circuit with a clear explanation instead of letting
+  // every other user hit a confusing 403 from the API.
+  if (env.ALERT_FROM_EMAIL.includes("resend.dev")) {
+    const ownerEmail = await getSetting(env.DB, "RESEND_ACCOUNT_EMAIL");
+    if (ownerEmail && to.toLowerCase() !== ownerEmail.toLowerCase()) {
+      throw new Error(
+        `This app is using Resend's shared sandbox sender, which can only deliver to ${ownerEmail}` +
+          ` (the Resend account owner) until a custom domain is verified at resend.com/domains.` +
+          ` You're signed in as ${to}, so email alerts aren't available for your account yet.`,
+      );
+    }
+  }
+
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
