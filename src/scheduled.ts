@@ -5,9 +5,21 @@ import { sendAlertEmail } from "./lib/email";
 
 interface Condition {
   type: AlertType;
+  // Distinguishes which of several concurrent thresholds (of the same
+  // alert_type) this condition tracks; price_high/price_low use "".
+  thresholdKey: string;
   met: boolean;
   value: number;
   message: (item: WatchlistItem, quote: Quote) => string;
+}
+
+// item.percent_change_threshold is a normalized comma-separated list, e.g. "1,3,5,10".
+function parsePercentThresholds(raw: string | null): number[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n));
 }
 
 function evaluateConditions(item: WatchlistItem, quote: Quote): Condition[] {
@@ -16,6 +28,7 @@ function evaluateConditions(item: WatchlistItem, quote: Quote): Condition[] {
   if (item.price_high !== null) {
     conditions.push({
       type: "price_high",
+      thresholdKey: "",
       met: quote.price >= item.price_high,
       value: quote.price,
       message: (i, q) =>
@@ -26,6 +39,7 @@ function evaluateConditions(item: WatchlistItem, quote: Quote): Condition[] {
   if (item.price_low !== null) {
     conditions.push({
       type: "price_low",
+      thresholdKey: "",
       met: quote.price <= item.price_low,
       value: quote.price,
       message: (i, q) =>
@@ -33,13 +47,14 @@ function evaluateConditions(item: WatchlistItem, quote: Quote): Condition[] {
     });
   }
 
-  if (item.percent_change_threshold !== null) {
+  for (const threshold of parsePercentThresholds(item.percent_change_threshold)) {
     conditions.push({
       type: "percent_change",
-      met: Math.abs(quote.changePercent) >= item.percent_change_threshold,
+      thresholdKey: String(threshold),
+      met: Math.abs(quote.changePercent) >= threshold,
       value: quote.changePercent,
       message: (i, q) =>
-        `${i.symbol} moved ${q.changePercent >= 0 ? "+" : ""}${q.changePercent.toFixed(2)}% today, past your ${i.percent_change_threshold!.toFixed(2)}% threshold.`,
+        `${i.symbol} moved ${q.changePercent >= 0 ? "+" : ""}${q.changePercent.toFixed(2)}% today, past your ${threshold}% threshold.`,
     });
   }
 
@@ -60,7 +75,7 @@ export async function runAlertCheck(env: Env): Promise<void> {
     if (!quote) continue;
 
     for (const condition of evaluateConditions(item, quote)) {
-      const wasActive = await isAlertActive(env.DB, item.id, condition.type);
+      const wasActive = await isAlertActive(env.DB, item.id, condition.type, condition.thresholdKey);
 
       if (condition.met && !wasActive) {
         const message = condition.message(item, quote);
@@ -83,9 +98,9 @@ export async function runAlertCheck(env: Env): Promise<void> {
           console.error(`Failed to send alert email for ${item.symbol}/${condition.type}:`, err);
           continue; // leave alert_state inactive so we retry next tick
         }
-        await setAlertActive(env.DB, item.id, condition.type, true, condition.value);
+        await setAlertActive(env.DB, item.id, condition.type, condition.thresholdKey, true, condition.value);
       } else if (!condition.met && wasActive) {
-        await setAlertActive(env.DB, item.id, condition.type, false, condition.value);
+        await setAlertActive(env.DB, item.id, condition.type, condition.thresholdKey, false, condition.value);
       }
     }
   }

@@ -10,8 +10,16 @@ const fmtAxisDate = (value) =>
 
 const uniqueTicks = (values) => [...new Set(values.map((v) => v.toFixed(6)))].map(parseFloat);
 
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.7.0";
 const CHANGELOG = [
+  {
+    version: "1.7.0",
+    date: "2026-07-09",
+    notes: [
+      "% day-change alerts now accept a comma-separated list of thresholds (e.g. 1, 3, 5, 10), each firing its own email when crossed.",
+      "Chart now shows axis labels/gridlines and a hover dot with a guide line on the hovered point.",
+    ],
+  },
   {
     version: "1.6.0",
     date: "2026-07-09",
@@ -175,6 +183,16 @@ function thresholdCell(value, suffix = "") {
   return `<span class="threshold-set">${value}${suffix}</span>`;
 }
 
+// percent_change_threshold is a comma-separated list, e.g. "1,3,5,10".
+function percentThresholdCell(value) {
+  if (value === null || value === undefined || value === "") return `<span class="threshold-unset">—</span>`;
+  const parts = String(value)
+    .split(",")
+    .map((s) => `${s.trim()}%`)
+    .join(", ");
+  return `<span class="threshold-set">${parts}</span>`;
+}
+
 function renderSummary() {
   const withValue = rows.filter((r) => r.market_value !== null);
   const totalValue = withValue.reduce((sum, r) => sum + r.market_value, 0);
@@ -225,7 +243,7 @@ function renderTable() {
           <td data-col="value">${fmtMoney(r.market_value)}</td>
           <td data-col="high">${thresholdCell(r.price_high, " " + (q?.currency ?? "USD"))}</td>
           <td data-col="low">${thresholdCell(r.price_low, " " + (q?.currency ?? "USD"))}</td>
-          <td data-col="pct">${thresholdCell(r.percent_change_threshold, "%")}</td>
+          <td data-col="pct">${percentThresholdCell(r.percent_change_threshold)}</td>
           <td class="row-actions">
             <button class="btn btn-ghost edit-btn">Edit</button>
             <button class="btn btn-ghost btn-danger delete-btn">Delete</button>
@@ -384,7 +402,9 @@ function openDialog(row) {
     form.elements.shares.value = row.shares ?? "";
     form.elements.price_high.value = row.price_high ?? "";
     form.elements.price_low.value = row.price_low ?? "";
-    form.elements.percent_change_threshold.value = row.percent_change_threshold ?? "";
+    form.elements.percent_change_threshold.value = row.percent_change_threshold
+      ? row.percent_change_threshold.split(",").join(", ")
+      : "";
   }
   dialog.showModal();
 }

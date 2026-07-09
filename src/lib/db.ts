@@ -102,10 +102,19 @@ export async function deleteWatchlistItem(db: D1Database, id: number, userEmail:
   await db.prepare("DELETE FROM watchlist WHERE id = ? AND user_email = ?").bind(id, userEmail).run();
 }
 
-export async function isAlertActive(db: D1Database, watchlistId: number, alertType: AlertType): Promise<boolean> {
+// thresholdKey distinguishes multiple concurrently-tracked thresholds of the
+// same alert_type (each percent_change threshold in the list gets its own
+// active/inactive state). price_high/price_low are single-valued, so they
+// always use the default "" key.
+export async function isAlertActive(
+  db: D1Database,
+  watchlistId: number,
+  alertType: AlertType,
+  thresholdKey = "",
+): Promise<boolean> {
   const row = await db
-    .prepare("SELECT active FROM alert_state WHERE watchlist_id = ? AND alert_type = ?")
-    .bind(watchlistId, alertType)
+    .prepare("SELECT active FROM alert_state WHERE watchlist_id = ? AND alert_type = ? AND threshold_key = ?")
+    .bind(watchlistId, alertType, thresholdKey)
     .first<{ active: number }>();
   return row?.active === 1;
 }
@@ -114,17 +123,18 @@ export async function setAlertActive(
   db: D1Database,
   watchlistId: number,
   alertType: AlertType,
+  thresholdKey: string,
   active: boolean,
   lastValue: number,
 ): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO alert_state (watchlist_id, alert_type, active, last_value, updated_at)
-       VALUES (?, ?, ?, ?, datetime('now'))
-       ON CONFLICT (watchlist_id, alert_type)
+      `INSERT INTO alert_state (watchlist_id, alert_type, threshold_key, active, last_value, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'))
+       ON CONFLICT (watchlist_id, alert_type, threshold_key)
        DO UPDATE SET active = excluded.active, last_value = excluded.last_value, updated_at = excluded.updated_at`,
     )
-    .bind(watchlistId, alertType, active ? 1 : 0, lastValue)
+    .bind(watchlistId, alertType, thresholdKey, active ? 1 : 0, lastValue)
     .run();
 }
 

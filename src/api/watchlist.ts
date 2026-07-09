@@ -12,6 +12,28 @@ export const watchlistRoutes = new Hono<AppEnv>();
 
 const num = (v: unknown): number | null => (v === undefined || v === null || v === "" ? null : Number(v));
 
+// Accepts a comma-separated list of percent thresholds (e.g. "1, 3, 5, 10")
+// and normalizes it to a deduped, ascending, comma-separated string, so
+// re-saving is idempotent and the cron check can split on "," directly.
+function percentList(v: unknown): string | null {
+  if (v === undefined || v === null) return null;
+  const raw = String(v).trim();
+  if (raw === "") return null;
+
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s !== "");
+  if (parts.length === 0) return null;
+
+  const values = parts.map(Number);
+  if (values.some((n) => !Number.isFinite(n) || n < 0)) {
+    throw new Error("percent_change_threshold must be a comma-separated list of non-negative numbers, e.g. 1, 3, 5");
+  }
+
+  return [...new Set(values)].sort((a, b) => a - b).join(",");
+}
+
 function parseInput(body: unknown): WatchlistInput {
   const b = body as Record<string, unknown>;
   if (typeof b.symbol !== "string" || b.symbol.trim() === "") {
@@ -23,7 +45,7 @@ function parseInput(body: unknown): WatchlistInput {
     shares: num(b.shares),
     price_high: num(b.price_high),
     price_low: num(b.price_low),
-    percent_change_threshold: num(b.percent_change_threshold),
+    percent_change_threshold: percentList(b.percent_change_threshold),
   };
 }
 
@@ -34,7 +56,7 @@ function parsePartialInput(body: unknown): Partial<WatchlistInput> {
     shares: num(b.shares),
     price_high: num(b.price_high),
     price_low: num(b.price_low),
-    percent_change_threshold: num(b.percent_change_threshold),
+    percent_change_threshold: percentList(b.percent_change_threshold),
   };
 }
 
