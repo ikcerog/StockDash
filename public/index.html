@@ -77,7 +77,10 @@
         <div class="panel-header">
           <h2>Chart</h2>
           <div class="chart-controls">
-            <select id="chart-symbol-select"></select>
+            <div class="dropdown" id="chart-symbols-dropdown">
+              <button id="chart-symbols-btn" type="button" class="btn btn-ghost">Symbols ▾</button>
+              <div class="dropdown-menu" id="chart-symbols-menu" hidden></div>
+            </div>
             <select id="chart-range-select">
               <option value="1mo">1M</option>
               <option value="3mo">3M</option>
@@ -89,7 +92,8 @@
         </div>
         <div class="chart-body">
           <svg id="chart-svg" class="chart-svg" viewBox="0 0 600 260" preserveAspectRatio="none"></svg>
-          <div class="chart-empty muted" id="chart-empty">Select a symbol to view its chart.</div>
+          <div class="chart-legend" id="chart-legend"></div>
+          <div class="chart-empty muted" id="chart-empty">Pick one or more symbols to view their chart.</div>
           <div class="chart-footer" id="chart-footer"></div>
         </div>
       </section>

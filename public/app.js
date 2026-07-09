@@ -5,8 +5,16 @@ const fmtMoney = (n) =>
 
 const fmtPercent = (n) => (n === null || n === undefined ? "—" : `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`);
 
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.4.1";
 const CHANGELOG = [
+  {
+    version: "1.4.1",
+    date: "2026-07-09",
+    notes: [
+      "Fixed the Columns dropdown staying open / not hiding.",
+      "Chart pane now supports overlaying multiple symbols, normalized as % change so different price levels compare cleanly.",
+    ],
+  },
   {
     version: "1.4.0",
     date: "2026-07-09",
@@ -46,9 +54,11 @@ const LS_KEYS = {
   theme: "stockdash:theme",
   columns: "stockdash:columns",
   chartVisible: "stockdash:chartVisible",
-  chartSymbol: "stockdash:chartSymbol",
+  chartSymbols: "stockdash:chartSymbols",
   chartRange: "stockdash:chartRange",
 };
+
+const CHART_COLORS = ["#2563eb", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#0ea5e9", "#ec4899", "#84cc16"];
 
 function lsGet(key) {
   try {
@@ -92,8 +102,18 @@ const columnPrefs = {
 };
 
 let chartVisible = lsGet(LS_KEYS.chartVisible) === "true";
-let chartSymbol = lsGet(LS_KEYS.chartSymbol) || null;
+let chartSymbols = readJSON(LS_KEYS.chartSymbols, null);
+if (chartSymbols === null) {
+  // Migrate from the old single-symbol preference.
+  const legacy = lsGet("stockdash:chartSymbol");
+  chartSymbols = legacy ? [legacy] : [];
+}
 let chartRange = lsGet(LS_KEYS.chartRange) || "6mo";
+
+function colorForSymbol(symbol) {
+  const idx = chartSymbols.indexOf(symbol);
+  return CHART_COLORS[(idx < 0 ? 0 : idx) % CHART_COLORS.length];
+}
 
 const dialog = document.getElementById("stock-dialog");
 const form = document.getElementById("stock-form");
@@ -200,11 +220,7 @@ function renderTable() {
       const id = Number(cell.closest("tr").dataset.id);
       const row = rows.find((r) => r.id === id);
       if (!row) return;
-      chartSymbol = row.symbol;
-      lsSet(LS_KEYS.chartSymbol, chartSymbol);
-      const select = document.getElementById("chart-symbol-select");
-      if (select) select.value = chartSymbol;
-      loadChart();
+      toggleChartSymbol(row.symbol);
     });
   });
 
@@ -295,7 +311,7 @@ async function loadWatchlist() {
   rows = await api("/api/quotes");
   renderSummary();
   renderTable();
-  populateChartSymbolSelect();
+  populateChartSymbolsMenu();
   if (chartVisible) loadChart();
   document.getElementById("last-updated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
 }
@@ -410,27 +426,60 @@ document.getElementById("chart-toggle-btn").addEventListener("click", () => {
   lsSet(LS_KEYS.chartVisible, String(chartVisible));
   applyChartVisibility();
   if (chartVisible) {
-    populateChartSymbolSelect();
+    populateChartSymbolsMenu();
     loadChart();
   }
 });
 
-function populateChartSymbolSelect() {
-  const select = document.getElementById("chart-symbol-select");
-  if (rows.length === 0) {
-    select.innerHTML = "";
-    return;
+function toggleChartSymbol(symbol) {
+  const idx = chartSymbols.indexOf(symbol);
+  if (idx === -1) {
+    chartSymbols.push(symbol);
+  } else {
+    chartSymbols.splice(idx, 1);
   }
-  select.innerHTML = rows.map((r) => `<option value="${r.symbol}">${r.symbol}</option>`).join("");
-  const stillTracked = rows.some((r) => r.symbol === chartSymbol);
-  chartSymbol = stillTracked ? chartSymbol : rows[0].symbol;
-  select.value = chartSymbol;
+  lsSet(LS_KEYS.chartSymbols, JSON.stringify(chartSymbols));
+  populateChartSymbolsMenu();
+  loadChart();
 }
 
-document.getElementById("chart-symbol-select").addEventListener("change", (e) => {
-  chartSymbol = e.target.value;
-  lsSet(LS_KEYS.chartSymbol, chartSymbol);
-  loadChart();
+function populateChartSymbolsMenu() {
+  // Drop symbols that are no longer tracked (deleted from the watchlist).
+  const tracked = new Set(rows.map((r) => r.symbol));
+  chartSymbols = chartSymbols.filter((s) => tracked.has(s));
+
+  const menu = document.getElementById("chart-symbols-menu");
+  if (rows.length === 0) {
+    menu.innerHTML = `<span class="chart-symbols-menu-empty muted">No symbols tracked yet.</span>`;
+    return;
+  }
+  menu.innerHTML = rows
+    .map(
+      (r) => `
+        <label>
+          <input type="checkbox" data-symbol="${r.symbol}" ${chartSymbols.includes(r.symbol) ? "checked" : ""} />
+          <span class="legend-dot" style="background:${colorForSymbol(r.symbol)}"></span>
+          ${r.symbol}
+        </label>
+      `,
+    )
+    .join("");
+  menu.querySelectorAll("input[type=checkbox]").forEach((input) => {
+    input.addEventListener("change", () => {
+      toggleChartSymbol(input.dataset.symbol);
+    });
+  });
+}
+
+document.getElementById("chart-symbols-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const menu = document.getElementById("chart-symbols-menu");
+  menu.hidden = !menu.hidden;
+});
+document.addEventListener("click", (e) => {
+  const dropdown = document.getElementById("chart-symbols-dropdown");
+  const menu = document.getElementById("chart-symbols-menu");
+  if (!menu.hidden && !dropdown.contains(e.target)) menu.hidden = true;
 });
 
 document.getElementById("chart-range-select").value = chartRange;
@@ -440,41 +489,90 @@ document.getElementById("chart-range-select").addEventListener("change", (e) => 
   loadChart();
 });
 
+function renderChartLegend(series) {
+  const legend = document.getElementById("chart-legend");
+  legend.innerHTML = series
+    .map(
+      (s) => `
+        <span class="legend-item" data-symbol="${s.symbol}">
+          <span class="legend-dot" style="background:${s.color}"></span>${s.symbol}
+        </span>
+      `,
+    )
+    .join("");
+  legend.querySelectorAll(".legend-item").forEach((el) => {
+    el.addEventListener("click", () => toggleChartSymbol(el.dataset.symbol));
+  });
+}
+
 async function loadChart() {
-  if (!chartVisible || !chartSymbol) return;
   const svg = document.getElementById("chart-svg");
   const empty = document.getElementById("chart-empty");
   const footer = document.getElementById("chart-footer");
+  const legend = document.getElementById("chart-legend");
+
+  if (!chartVisible || chartSymbols.length === 0) {
+    svg.innerHTML = "";
+    hideTooltip();
+    legend.innerHTML = "";
+    footer.textContent = "";
+    empty.hidden = false;
+    empty.textContent = "Pick one or more symbols to view their chart.";
+    return;
+  }
+
   try {
-    const data = await api(`/api/history/${encodeURIComponent(chartSymbol)}?range=${chartRange}`);
-    if (!data.points || data.points.length < 2) {
+    const results = await Promise.all(
+      chartSymbols.map(async (symbol) => {
+        const data = await api(`/api/history/${encodeURIComponent(symbol)}?range=${chartRange}`);
+        return { symbol, points: data.points ?? [] };
+      }),
+    );
+    const series = results
+      .filter((s) => s.points.length >= 2)
+      .map((s) => ({ ...s, color: colorForSymbol(s.symbol) }));
+
+    if (series.length === 0) {
       svg.innerHTML = "";
       hideTooltip();
-      empty.hidden = false;
-      empty.textContent = "No chart data available for this symbol.";
+      legend.innerHTML = "";
       footer.textContent = "";
+      empty.hidden = false;
+      empty.textContent = "No chart data available for the selected symbol(s).";
       return;
     }
+
     empty.hidden = true;
-    drawChart(svg, data.points);
-    const first = data.points[0];
-    const last = data.points[data.points.length - 1];
-    const change = last.close - first.close;
-    const changePct = first.close ? (change / first.close) * 100 : null;
-    footer.innerHTML = `
-      <span>${first.date} — ${last.date}</span>
-      <span class="${change >= 0 ? "up" : "down"}">${fmtMoney(last.close)} (${fmtPercent(changePct)})</span>
-    `;
+    renderChartLegend(series);
+
+    if (series.length === 1) {
+      drawSingleChart(svg, series[0]);
+      const points = series[0].points;
+      const first = points[0];
+      const last = points[points.length - 1];
+      const change = last.close - first.close;
+      const changePct = first.close ? (change / first.close) * 100 : null;
+      footer.innerHTML = `
+        <span>${first.date} — ${last.date}</span>
+        <span class="${change >= 0 ? "up" : "down"}">${fmtMoney(last.close)} (${fmtPercent(changePct)})</span>
+      `;
+    } else {
+      drawOverlayChart(svg, series);
+      footer.innerHTML = `<span>% change over the selected range, normalized to each symbol's starting price</span>`;
+    }
   } catch (err) {
     svg.innerHTML = "";
     hideTooltip();
+    legend.innerHTML = "";
     empty.hidden = false;
     empty.textContent = `Chart unavailable: ${err.message}`;
     footer.textContent = "";
   }
 }
 
-function drawChart(svg, points) {
+// Single symbol: raw price line with area fill, for a detailed look.
+function drawSingleChart(svg, series) {
+  const points = series.points;
   const width = 600;
   const height = 260;
   const padding = { top: 16, right: 16, bottom: 24, left: 54 };
@@ -494,8 +592,8 @@ function drawChart(svg, points) {
 
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.innerHTML = `
-    <path class="chart-area" d="${areaPath}"></path>
-    <path class="chart-line" d="${linePath}"></path>
+    <path class="chart-area" style="fill:${series.color}" d="${areaPath}"></path>
+    <path class="chart-line" style="stroke:${series.color}" d="${linePath}"></path>
     <text x="${padding.left}" y="12" font-size="10" fill="var(--muted)">${fmtMoney(max)}</text>
     <text x="${padding.left}" y="${height - padding.bottom + 14}" font-size="10" fill="var(--muted)">${fmtMoney(min)}</text>
   `;
@@ -505,14 +603,86 @@ function drawChart(svg, points) {
     const relX = ((e.clientX - rect.left) / rect.width) * width;
     let idx = Math.round(((relX - padding.left) / (width - padding.left - padding.right)) * (points.length - 1));
     idx = Math.max(0, Math.min(points.length - 1, idx));
-    showTooltip(svg, points[idx], x(idx), y(points[idx].close));
+    const p = points[idx];
+    showTooltip(svg, `${p.date}: ${fmtMoney(p.close)}`, x(idx), y(p.close));
+  };
+  svg.onmouseleave = () => hideTooltip();
+}
+
+// Multiple symbols: normalized % change from each symbol's first point in
+// range, so tickers at very different price levels overlay meaningfully.
+function drawOverlayChart(svg, series) {
+  const width = 600;
+  const height = 260;
+  const padding = { top: 16, right: 16, bottom: 24, left: 50 };
+
+  const allTimes = series.flatMap((s) => s.points.map((p) => new Date(p.date).getTime()));
+  const minTime = Math.min(...allTimes);
+  const maxTime = Math.max(...allTimes);
+  const timeRange = maxTime - minTime || 1;
+
+  const normalized = series.map((s) => {
+    const first = s.points[0].close;
+    return {
+      ...s,
+      values: s.points.map((p) => ({
+        t: new Date(p.date).getTime(),
+        v: first ? ((p.close - first) / first) * 100 : 0,
+        date: p.date,
+        close: p.close,
+      })),
+    };
+  });
+
+  const allValues = normalized.flatMap((s) => s.values.map((v) => v.v)).concat([0]);
+  const minV = Math.min(...allValues);
+  const maxV = Math.max(...allValues);
+  const vRange = maxV - minV || 1;
+
+  const x = (t) => padding.left + ((t - minTime) / timeRange) * (width - padding.left - padding.right);
+  const y = (v) => padding.top + (1 - (v - minV) / vRange) * (height - padding.top - padding.bottom);
+  const zeroY = y(0).toFixed(2);
+
+  const lines = normalized
+    .map((s) => {
+      const d = s.values.map((v, i) => `${i === 0 ? "M" : "L"}${x(v.t).toFixed(2)},${y(v.v).toFixed(2)}`).join(" ");
+      return `<path class="chart-line" style="stroke:${s.color}" d="${d}"></path>`;
+    })
+    .join("");
+
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = `
+    <line x1="${padding.left}" y1="${zeroY}" x2="${width - padding.right}" y2="${zeroY}" class="chart-zero-line"></line>
+    ${lines}
+    <text x="${padding.left}" y="12" font-size="10" fill="var(--muted)">${maxV.toFixed(1)}%</text>
+    <text x="${padding.left}" y="${height - padding.bottom + 14}" font-size="10" fill="var(--muted)">${minV.toFixed(1)}%</text>
+  `;
+
+  svg.onmousemove = (e) => {
+    const rect = svg.getBoundingClientRect();
+    const relX = ((e.clientX - rect.left) / rect.width) * width;
+    const t = minTime + ((relX - padding.left) / (width - padding.left - padding.right)) * timeRange;
+
+    const lines = normalized.map((s) => {
+      let nearest = s.values[0];
+      let bestDiff = Infinity;
+      for (const v of s.values) {
+        const diff = Math.abs(v.t - t);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          nearest = v;
+        }
+      }
+      return `${s.symbol}: ${nearest.v >= 0 ? "+" : ""}${nearest.v.toFixed(2)}%`;
+    });
+    showTooltip(svg, lines.join("\n"), Math.max(padding.left, Math.min(width - padding.right, relX)), padding.top);
   };
   svg.onmouseleave = () => hideTooltip();
 }
 
 let tooltipEl = null;
 
-function showTooltip(svg, point, cx, cy) {
+function showTooltip(svg, text, cx, cy) {
   const container = svg.parentElement;
   if (!tooltipEl) {
     tooltipEl = document.createElement("div");
@@ -525,7 +695,8 @@ function showTooltip(svg, point, cx, cy) {
   tooltipEl.style.left = `${cx * scaleX}px`;
   tooltipEl.style.top = `${cy * scaleY}px`;
   tooltipEl.hidden = false;
-  tooltipEl.textContent = `${point.date}: ${fmtMoney(point.close)}`;
+  tooltipEl.style.whiteSpace = "pre-line";
+  tooltipEl.textContent = text;
 }
 
 function hideTooltip() {
