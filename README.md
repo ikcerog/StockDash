@@ -10,8 +10,9 @@ moves.
 - **Prices**: pulled live from Yahoo Finance's unofficial chart endpoint (no
   API key needed).
 - **Alerts**: a Cron Trigger runs every 15 minutes during US market hours,
-  checks each tracked stock against its thresholds, and emails you via
-  [Resend](https://resend.com) when a condition is newly crossed.
+  checks each tracked stock against its thresholds, and emails the owning
+  user via [Brevo](https://www.brevo.com) (preferred) or
+  [Resend](https://resend.com) (fallback) when a condition is newly crossed.
 - **Storage**: Cloudflare D1 (SQLite) holds the watchlist, alert state, and
   alert history.
 
@@ -74,10 +75,15 @@ To add a user, add their email to the Access application's allow policy
 Worker's Domains tab). They sign in with the same one-time-PIN flow — no
 signup or password anywhere.
 
-**Email caveat**: the default `onboarding@resend.dev` sender only delivers
-to the Resend account owner's own address. Before adding other users,
-verify a domain in Resend (free tier: 1 domain, 100 emails/day) and change
-`ALERT_FROM_EMAIL` in `wrangler.toml` to an address on that domain.
+**Email provider**: `src/lib/email.ts` sends via
+[Brevo](https://www.brevo.com) if `BREVO_API_KEY` and `BREVO_SENDER_EMAIL`
+are set (as D1 `settings` rows, same pattern as the FRED/Resend keys — see
+`getSetting`/D1 `settings` table), otherwise it falls back to Resend.
+Brevo's free tier verifies a single sender address (click a confirmation
+link — no domain/DNS needed) and can then deliver to any recipient, which
+is why it's preferred over Resend's `onboarding@resend.dev` sender, which
+is sandboxed to the Resend account owner's own address until a full domain
+is verified.
 
 ## Local development
 

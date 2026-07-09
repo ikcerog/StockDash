@@ -1,7 +1,35 @@
 import type { Env } from "../types";
 import { getSetting } from "./db";
 
-export async function sendAlertEmail(env: Env, to: string, subject: string, html: string): Promise<void> {
+async function sendViaBrevo(
+  apiKey: string,
+  senderEmail: string,
+  to: string,
+  subject: string,
+  html: string,
+): Promise<void> {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender: { email: senderEmail, name: "StockDash" },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Brevo request failed (${res.status}): ${text}`);
+  }
+}
+
+async function sendViaResend(env: Env, to: string, subject: string, html: string): Promise<void> {
   // Prefer the key stored in D1 settings; fall back to the Workers secret.
   // (D1 first so an updated key takes effect without touching secrets.)
   const d1Key = await getSetting(env.DB, "RESEND_API_KEY");
@@ -44,4 +72,17 @@ export async function sendAlertEmail(env: Env, to: string, subject: string, html
     const text = await res.text();
     throw new Error(`Resend request failed (${res.status}, key from ${keySource}): ${text}`);
   }
+}
+
+export async function sendAlertEmail(env: Env, to: string, subject: string, html: string): Promise<void> {
+  // Brevo verifies a single sender address rather than a whole domain, so
+  // once it's configured it can reach any recipient — prefer it over the
+  // Resend sandbox fallback, which is stuck delivering to one address.
+  const brevoKey = await getSetting(env.DB, "BREVO_API_KEY");
+  const brevoSender = await getSetting(env.DB, "BREVO_SENDER_EMAIL");
+  if (brevoKey && brevoSender) {
+    return sendViaBrevo(brevoKey, brevoSender, to, subject, html);
+  }
+
+  return sendViaResend(env, to, subject, html);
 }

@@ -5,8 +5,16 @@ const fmtMoney = (n) =>
 
 const fmtPercent = (n) => (n === null || n === undefined ? "—" : `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`);
 
-const APP_VERSION = "1.4.1";
+const APP_VERSION = "1.5.0";
 const CHANGELOG = [
+  {
+    version: "1.5.0",
+    date: "2026-07-09",
+    notes: [
+      "Email alerts now go through Brevo (free tier) with a verified sender, so any signed-in user can receive them — not just the account owner.",
+      "Falls back to the previous Resend setup automatically if Brevo isn't configured.",
+    ],
+  },
   {
     version: "1.4.1",
     date: "2026-07-09",

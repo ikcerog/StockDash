@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../types";
 import { listAlertLog } from "../lib/db";
-import { sendAlertEmail } from "../lib/resend";
+import { sendAlertEmail } from "../lib/email";
 
 export const alertsRoutes = new Hono<AppEnv>();
 

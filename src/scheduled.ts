@@ -1,7 +1,7 @@
 import type { AlertType, Env, WatchlistItem } from "./types";
 import { isAlertActive, listAllWatchlist, logAlert, setAlertActive } from "./lib/db";
 import { fetchQuotes, type Quote } from "./lib/yahoo";
-import { sendAlertEmail } from "./lib/resend";
+import { sendAlertEmail } from "./lib/email";
 
 interface Condition {
   type: AlertType;
