@@ -119,6 +119,8 @@ body.chart-open main { max-width: 1400px; }
 }
 
 .btn:hover { border-color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled:hover { border-color: var(--border); }
 
 .btn-primary {
   background: var(--accent);
@@ -447,7 +449,11 @@ fieldset legend { font-size: 0.8rem; color: var(--muted); padding: 0 4px; }
 
 .chart-line { fill: none; stroke: var(--accent); stroke-width: 2; }
 .chart-area { fill: var(--accent); opacity: 0.12; }
-.chart-zero-line { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 3; }
+.chart-zero-line { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.6; }
+.chart-grid-line { stroke: var(--muted); stroke-width: 1; opacity: 0.3; }
+.chart-axis-label { font-size: 10px; fill: var(--muted); }
+.chart-hover-line { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.6; }
+.chart-dot { stroke: var(--surface); stroke-width: 1.5; }
 
 .chart-legend {
   display: flex;

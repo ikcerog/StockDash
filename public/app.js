@@ -5,8 +5,21 @@ const fmtMoney = (n) =>
 
 const fmtPercent = (n) => (n === null || n === undefined ? "—" : `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`);
 
-const APP_VERSION = "1.6.0";
+const fmtAxisDate = (value) =>
+  new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+const uniqueTicks = (values) => [...new Set(values.map((v) => v.toFixed(6)))].map(parseFloat);
+
+const APP_VERSION = "1.8.0";
 const CHANGELOG = [
+  {
+    version: "1.8.0",
+    date: "2026-07-09",
+    notes: [
+      "% day-change alerts now accept a comma-separated list of thresholds (e.g. 1, 3, 5, 10), each firing its own email when crossed.",
+      "Chart now shows axis labels/gridlines and a hover dot with a guide line on the hovered point.",
+    ],
+  },
   {
     version: "1.6.0",
     date: "2026-07-09",
@@ -170,6 +183,16 @@ function thresholdCell(value, suffix = "") {
   return `<span class="threshold-set">${value}${suffix}</span>`;
 }
 
+// percent_change_threshold is a comma-separated list, e.g. "1,3,5,10".
+function percentThresholdCell(value) {
+  if (value === null || value === undefined || value === "") return `<span class="threshold-unset">—</span>`;
+  const parts = String(value)
+    .split(",")
+    .map((s) => `${s.trim()}%`)
+    .join(", ");
+  return `<span class="threshold-set">${parts}</span>`;
+}
+
 function renderSummary() {
   const withValue = rows.filter((r) => r.market_value !== null);
   const totalValue = withValue.reduce((sum, r) => sum + r.market_value, 0);
@@ -220,7 +243,7 @@ function renderTable() {
           <td data-col="value">${fmtMoney(r.market_value)}</td>
           <td data-col="high">${thresholdCell(r.price_high, " " + (q?.currency ?? "USD"))}</td>
           <td data-col="low">${thresholdCell(r.price_low, " " + (q?.currency ?? "USD"))}</td>
-          <td data-col="pct">${thresholdCell(r.percent_change_threshold, "%")}</td>
+          <td data-col="pct">${percentThresholdCell(r.percent_change_threshold)}</td>
           <td class="row-actions">
             <button class="btn btn-ghost edit-btn">Edit</button>
             <button class="btn btn-ghost btn-danger delete-btn">Delete</button>
@@ -379,7 +402,9 @@ function openDialog(row) {
     form.elements.shares.value = row.shares ?? "";
     form.elements.price_high.value = row.price_high ?? "";
     form.elements.price_low.value = row.price_low ?? "";
-    form.elements.percent_change_threshold.value = row.percent_change_threshold ?? "";
+    form.elements.percent_change_threshold.value = row.percent_change_threshold
+      ? row.percent_change_threshold.split(",").join(", ")
+      : "";
   }
   dialog.showModal();
 }
@@ -631,7 +656,7 @@ function drawSingleChart(svg, series) {
   const points = series.points;
   const width = 600;
   const height = 260;
-  const padding = { top: 16, right: 16, bottom: 24, left: 54 };
+  const padding = { top: 16, right: 16, bottom: 30, left: 58 };
   const values = points.map((p) => p.close);
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -646,13 +671,36 @@ function drawSingleChart(svg, series) {
   const baseline = (height - padding.bottom).toFixed(2);
   const areaPath = `${linePath} L${x(points.length - 1).toFixed(2)},${baseline} L${x(0).toFixed(2)},${baseline} Z`;
 
+  const yGrid = uniqueTicks([min, min + range / 2, max])
+    .map(
+      (v) => `
+        <line class="chart-grid-line" x1="${padding.left}" y1="${y(v).toFixed(2)}" x2="${width - padding.right}" y2="${y(v).toFixed(2)}"></line>
+        <text class="chart-axis-label" x="${padding.left - 6}" y="${y(v).toFixed(2)}" text-anchor="end" dominant-baseline="middle">${fmtMoney(v)}</text>
+      `,
+    )
+    .join("");
+
+  const xTickCount = Math.min(5, points.length);
+  const xTicks = [...new Set(Array.from({ length: xTickCount }, (_, i) => Math.round((i / (xTickCount - 1)) * (points.length - 1))))];
+  const xLabels = xTicks
+    .map((idx, i) => {
+      const anchor = i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle";
+      return `<text class="chart-axis-label" x="${x(idx).toFixed(2)}" y="${height - 8}" text-anchor="${anchor}">${fmtAxisDate(points[idx].date)}</text>`;
+    })
+    .join("");
+
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.innerHTML = `
+    ${yGrid}
     <path class="chart-area" style="fill:${series.color}" d="${areaPath}"></path>
     <path class="chart-line" style="stroke:${series.color}" d="${linePath}"></path>
-    <text x="${padding.left}" y="12" font-size="10" fill="var(--muted)">${fmtMoney(max)}</text>
-    <text x="${padding.left}" y="${height - padding.bottom + 14}" font-size="10" fill="var(--muted)">${fmtMoney(min)}</text>
+    ${xLabels}
+    <line class="chart-hover-line" x1="0" y1="${padding.top}" x2="0" y2="${height - padding.bottom}" hidden></line>
+    <circle class="chart-dot" r="4" style="fill:${series.color}" hidden></circle>
   `;
+
+  const hoverLine = svg.querySelector(".chart-hover-line");
+  const dot = svg.querySelector(".chart-dot");
 
   svg.onmousemove = (e) => {
     const rect = svg.getBoundingClientRect();
@@ -660,9 +708,21 @@ function drawSingleChart(svg, series) {
     let idx = Math.round(((relX - padding.left) / (width - padding.left - padding.right)) * (points.length - 1));
     idx = Math.max(0, Math.min(points.length - 1, idx));
     const p = points[idx];
-    showTooltip(svg, `${p.date}: ${fmtMoney(p.close)}`, x(idx), y(p.close));
+    const cx = x(idx);
+    const cy = y(p.close);
+    hoverLine.setAttribute("x1", cx.toFixed(2));
+    hoverLine.setAttribute("x2", cx.toFixed(2));
+    hoverLine.hidden = false;
+    dot.setAttribute("cx", cx.toFixed(2));
+    dot.setAttribute("cy", cy.toFixed(2));
+    dot.hidden = false;
+    showTooltip(svg, `${p.date}: ${fmtMoney(p.close)}`, cx, cy);
   };
-  svg.onmouseleave = () => hideTooltip();
+  svg.onmouseleave = () => {
+    hoverLine.hidden = true;
+    dot.hidden = true;
+    hideTooltip();
+  };
 }
 
 // Multiple symbols: normalized % change from each symbol's first point in
@@ -670,7 +730,7 @@ function drawSingleChart(svg, series) {
 function drawOverlayChart(svg, series) {
   const width = 600;
   const height = 260;
-  const padding = { top: 16, right: 16, bottom: 24, left: 50 };
+  const padding = { top: 16, right: 16, bottom: 30, left: 50 };
 
   const allTimes = series.flatMap((s) => s.points.map((p) => new Date(p.date).getTime()));
   const minTime = Math.min(...allTimes);
@@ -706,18 +766,45 @@ function drawOverlayChart(svg, series) {
     })
     .join("");
 
+  const yGrid = uniqueTicks([minV, 0, maxV])
+    .map(
+      (v) =>
+        `<text class="chart-axis-label" x="${padding.left - 6}" y="${y(v).toFixed(2)}" text-anchor="end" dominant-baseline="middle">${v.toFixed(1)}%</text>`,
+    )
+    .join("");
+
+  const longestSeries = normalized.reduce((a, b) => (a.values.length >= b.values.length ? a : b));
+  const xTickCount = Math.min(5, longestSeries.values.length);
+  const xTickTimes = Array.from({ length: xTickCount }, (_, i) => minTime + (i / (xTickCount - 1)) * timeRange);
+  const xLabels = xTickTimes
+    .map((t, i) => {
+      const anchor = i === 0 ? "start" : i === xTickTimes.length - 1 ? "end" : "middle";
+      return `<text class="chart-axis-label" x="${x(t).toFixed(2)}" y="${height - 8}" text-anchor="${anchor}">${fmtAxisDate(t)}</text>`;
+    })
+    .join("");
+
+  const dots = normalized
+    .map((s) => `<circle class="chart-dot" data-symbol="${s.symbol}" r="4" style="fill:${s.color}" hidden></circle>`)
+    .join("");
+
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.innerHTML = `
     <line x1="${padding.left}" y1="${zeroY}" x2="${width - padding.right}" y2="${zeroY}" class="chart-zero-line"></line>
+    ${yGrid}
     ${lines}
-    <text x="${padding.left}" y="12" font-size="10" fill="var(--muted)">${maxV.toFixed(1)}%</text>
-    <text x="${padding.left}" y="${height - padding.bottom + 14}" font-size="10" fill="var(--muted)">${minV.toFixed(1)}%</text>
+    ${xLabels}
+    <line class="chart-hover-line" x1="0" y1="${padding.top}" x2="0" y2="${height - padding.bottom}" hidden></line>
+    ${dots}
   `;
+
+  const hoverLine = svg.querySelector(".chart-hover-line");
+  const dotEls = new Map([...svg.querySelectorAll(".chart-dot")].map((el) => [el.dataset.symbol, el]));
 
   svg.onmousemove = (e) => {
     const rect = svg.getBoundingClientRect();
     const relX = ((e.clientX - rect.left) / rect.width) * width;
     const t = minTime + ((relX - padding.left) / (width - padding.left - padding.right)) * timeRange;
+    const cx = Math.max(padding.left, Math.min(width - padding.right, relX));
 
     const lines = normalized.map((s) => {
       let nearest = s.values[0];
@@ -729,11 +816,24 @@ function drawOverlayChart(svg, series) {
           nearest = v;
         }
       }
+      const dot = dotEls.get(s.symbol);
+      if (dot) {
+        dot.setAttribute("cx", x(nearest.t).toFixed(2));
+        dot.setAttribute("cy", y(nearest.v).toFixed(2));
+        dot.hidden = false;
+      }
       return `${s.symbol}: ${nearest.v >= 0 ? "+" : ""}${nearest.v.toFixed(2)}%`;
     });
-    showTooltip(svg, lines.join("\n"), Math.max(padding.left, Math.min(width - padding.right, relX)), padding.top);
+    hoverLine.setAttribute("x1", cx.toFixed(2));
+    hoverLine.setAttribute("x2", cx.toFixed(2));
+    hoverLine.hidden = false;
+    showTooltip(svg, lines.join("\n"), cx, padding.top);
   };
-  svg.onmouseleave = () => hideTooltip();
+  svg.onmouseleave = () => {
+    hoverLine.hidden = true;
+    dotEls.forEach((dot) => (dot.hidden = true));
+    hideTooltip();
+  };
 }
 
 let tooltipEl = null;

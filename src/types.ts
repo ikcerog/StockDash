@@ -25,7 +25,9 @@ export interface WatchlistItem {
   shares: number | null;
   price_high: number | null;
   price_low: number | null;
-  percent_change_threshold: number | null;
+  // Comma-separated, ascending, deduped list of percent thresholds (e.g.
+  // "1,3,5,10") so multiple move sizes can each fire their own alert.
+  percent_change_threshold: string | null;
   created_at: string;
 }
 
@@ -35,7 +37,7 @@ export interface WatchlistInput {
   shares?: number | null;
   price_high?: number | null;
   price_low?: number | null;
-  percent_change_threshold?: number | null;
+  percent_change_threshold?: string | null;
 }
 
 export type AlertType = "price_high" | "price_low" | "percent_change";
