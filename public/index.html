@@ -10,8 +10,18 @@
   <header class="topbar">
     <h1>StockDash</h1>
     <div class="topbar-actions">
+      <button id="version-chip" class="btn btn-ghost version-chip" title="View patch notes"></button>
       <span id="user-email" class="muted"></span>
       <span id="last-updated" class="muted"></span>
+      <button id="theme-toggle" class="btn btn-ghost icon-btn" title="Toggle theme" aria-label="Toggle theme">
+        <svg id="theme-icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <svg id="theme-icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
       <button id="refresh-btn" class="btn btn-ghost">Refresh</button>
     </div>
   </header>
@@ -28,32 +38,62 @@
       </div>
     </section>
 
-    <section class="panel">
-      <div class="panel-header">
-        <h2>Watchlist</h2>
-        <button id="add-stock-btn" class="btn btn-primary">+ Add stock</button>
-      </div>
-      <div class="table-wrap">
-        <table id="watchlist-table">
-          <thead>
-            <tr>
-              <th>Symbol</th>
-              <th>Price</th>
-              <th>Day change</th>
-              <th>Shares</th>
-              <th>Value</th>
-              <th>High alert</th>
-              <th>Low alert</th>
-              <th>% change alert</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="watchlist-body">
-            <tr><td colspan="9" class="muted">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <div class="workspace" id="workspace">
+      <section class="panel watchlist-panel">
+        <div class="panel-header">
+          <h2>Watchlist</h2>
+          <div class="header-actions">
+            <div class="dropdown" id="columns-dropdown">
+              <button id="columns-btn" class="btn btn-ghost">Columns ▾</button>
+              <div class="dropdown-menu" id="columns-menu" hidden></div>
+            </div>
+            <button id="chart-toggle-btn" class="btn btn-ghost">Show chart</button>
+            <button id="add-stock-btn" class="btn btn-primary">+ Add stock</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="watchlist-table">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th data-col="price">Price</th>
+                <th data-col="change">Day change</th>
+                <th data-col="shares">Shares</th>
+                <th data-col="value">Value</th>
+                <th data-col="high">High alert</th>
+                <th data-col="low">Low alert</th>
+                <th data-col="pct">% change alert</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="watchlist-body">
+              <tr><td colspan="9" class="muted">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel chart-panel" id="chart-panel" hidden>
+        <div class="panel-header">
+          <h2>Chart</h2>
+          <div class="chart-controls">
+            <select id="chart-symbol-select"></select>
+            <select id="chart-range-select">
+              <option value="1mo">1M</option>
+              <option value="3mo">3M</option>
+              <option value="6mo">6M</option>
+              <option value="1y">1Y</option>
+              <option value="5y">5Y</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-body">
+          <svg id="chart-svg" class="chart-svg" viewBox="0 0 600 260" preserveAspectRatio="none"></svg>
+          <div class="chart-empty muted" id="chart-empty">Select a symbol to view its chart.</div>
+          <div class="chart-footer" id="chart-footer"></div>
+        </div>
+      </section>
+    </div>
 
     <section class="panel">
       <div class="panel-header">
@@ -99,6 +139,16 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="patchnotes-dialog">
+    <div class="patchnotes">
+      <h2>What's new</h2>
+      <div id="patchnotes-body"></div>
+      <div class="dialog-actions">
+        <button type="button" id="patchnotes-close-btn" class="btn btn-primary">Close</button>
+      </div>
+    </div>
   </dialog>
 
   <script src="/app.js"></script>

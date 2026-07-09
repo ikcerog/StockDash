@@ -119,3 +119,17 @@ condition clears and is crossed again later (e.g. a new trading day).
 Add, edit, or remove stocks and their thresholds directly from the
 dashboard UI — no redeploy needed. Symbols are Yahoo Finance tickers (e.g.
 `AAPL`, `MSFT`, `VOO`).
+
+## Dashboard preferences
+
+These are per-browser (stored in `localStorage`), not per-account, so they
+don't follow you across devices:
+- **Columns** — show/hide individual watchlist columns.
+- **Theme** — light/dark toggle in the top bar; defaults to your OS setting
+  until you override it.
+- **Chart** — "Show chart" opens an optional price-history pane next to the
+  watchlist (click a symbol in the table, or use the dropdown, to change
+  what it plots). Backed by `GET /api/history/:symbol?range=`, which pulls
+  from the same Yahoo endpoint as live quotes.
+
+Click the version chip in the top bar for patch notes.

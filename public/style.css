@@ -26,6 +26,32 @@
   }
 }
 
+/* Explicit user choice always wins over the OS preference above — the
+   attribute selector has higher specificity than the media-scoped :root. */
+:root[data-theme="light"] {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --border: #e2e5ea;
+  --text: #1a1d23;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --accent-contrast: #ffffff;
+  --up: #15803d;
+  --down: #dc2626;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1115;
+  --surface: #171a21;
+  --border: #2a2e37;
+  --text: #e6e8eb;
+  --muted: #9aa1ac;
+  --accent: #4f8cff;
+  --accent-contrast: #0b0d10;
+  --up: #34d399;
+  --down: #f87171;
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -39,7 +65,10 @@ main {
   max-width: 960px;
   margin: 0 auto;
   padding: 0 20px 60px;
+  transition: max-width 0.15s ease;
 }
+
+body.chart-open main { max-width: 1400px; }
 
 .topbar {
   display: flex;
@@ -59,6 +88,21 @@ main {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+.icon-btn svg { display: block; }
+
+.version-chip {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 999px;
 }
 
 .muted { color: var(--muted); font-size: 0.85rem; }
@@ -147,6 +191,56 @@ main {
   margin: 0;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 20px;
+}
+
+.workspace.chart-visible {
+  grid-template-columns: 1fr 2fr;
+}
+
+@media (max-width: 900px) {
+  .workspace.chart-visible { grid-template-columns: 1fr; }
+}
+
+.workspace .panel { margin-bottom: 0; }
+
+.dropdown { position: relative; }
+
+.dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  min-width: 190px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dropdown-menu label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 .table-wrap { overflow-x: auto; }
 
 table {
@@ -177,6 +271,9 @@ tr:last-child td { border-bottom: none; }
 
 .symbol-cell { font-weight: 600; }
 .symbol-cell .name { display: block; font-weight: 400; font-size: 0.78rem; color: var(--muted); }
+
+#watchlist-table.chart-mode .symbol-cell { cursor: pointer; }
+#watchlist-table.chart-mode .symbol-cell:hover { text-decoration: underline; }
 
 .threshold-set { color: var(--text); }
 .threshold-unset { color: var(--muted); }
@@ -257,4 +354,84 @@ fieldset legend { font-size: 0.8rem; color: var(--muted); padding: 0 4px; }
   justify-content: flex-end;
   gap: 10px;
   margin-top: 4px;
+}
+
+#patchnotes-dialog { width: min(480px, 92vw); }
+
+.patchnotes {
+  padding: 20px;
+  max-height: 70vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.patchnotes h2 { margin: 0 0 8px; }
+
+.patchnotes .entry { margin-bottom: 12px; }
+
+.patchnotes .entry h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.patchnotes .entry .entry-date {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.patchnotes .entry ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+}
+
+.chart-panel { display: flex; flex-direction: column; }
+
+.chart-controls { display: flex; gap: 8px; }
+
+.chart-controls select {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 6px 8px;
+  font-size: 0.85rem;
+}
+
+.chart-body {
+  position: relative;
+  padding: 16px 18px 18px;
+}
+
+.chart-svg { width: 100%; height: 260px; display: block; }
+
+.chart-empty { padding: 40px 0; text-align: center; }
+
+.chart-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.chart-line { fill: none; stroke: var(--accent); stroke-width: 2; }
+.chart-area { fill: var(--accent); opacity: 0.12; }
+
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  transform: translate(-50%, -130%);
 }
