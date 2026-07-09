@@ -5,8 +5,18 @@ const fmtMoney = (n) =>
 
 const fmtPercent = (n) => (n === null || n === undefined ? "—" : `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`);
 
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.6.0";
 const CHANGELOG = [
+  {
+    version: "1.6.0",
+    date: "2026-07-09",
+    notes: [
+      "Fixed the theme toggle's sun/moon icons not showing.",
+      "Added a Compact view (fewer columns, tighter rows; symbol names move to a hover tooltip).",
+      "New favicon.",
+      "Added a (?) button with a What is this? / FAQ modal.",
+    ],
+  },
   {
     version: "1.5.0",
     date: "2026-07-09",
@@ -61,6 +71,7 @@ const CHANGELOG = [
 const LS_KEYS = {
   theme: "stockdash:theme",
   columns: "stockdash:columns",
+  compactView: "stockdash:compactView",
   chartVisible: "stockdash:chartVisible",
   chartSymbols: "stockdash:chartSymbols",
   chartRange: "stockdash:chartRange",
@@ -108,6 +119,19 @@ const columnPrefs = {
   ...Object.fromEntries(COLUMNS.map((c) => [c.key, true])),
   ...readJSON(LS_KEYS.columns, {}),
 };
+
+// Compact view shows only these columns, overriding individual prefs, so
+// everything fits without horizontal scrolling on most screens.
+const COMPACT_COLUMNS = new Set(["price", "change", "value"]);
+let compactView = lsGet(LS_KEYS.compactView) === "true";
+
+function escapeAttr(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
 let chartVisible = lsGet(LS_KEYS.chartVisible) === "true";
 let chartSymbols = readJSON(LS_KEYS.chartSymbols, null);
@@ -186,9 +210,10 @@ function renderTable() {
     .map((r) => {
       const q = r.quote;
       const changeClass = q && q.changePercent >= 0 ? "up" : "down";
+      const titleAttr = r.label ? ` title="${escapeAttr(r.label)}"` : "";
       return `
         <tr data-id="${r.id}">
-          <td class="symbol-cell">${r.symbol}${r.label ? `<span class="name">${r.label}</span>` : ""}</td>
+          <td class="symbol-cell"${titleAttr}>${r.symbol}${!compactView && r.label ? `<span class="name">${r.label}</span>` : ""}</td>
           <td data-col="price">${q ? fmtMoney(q.price) : "—"}</td>
           <td data-col="change" class="${q ? changeClass : ""}">${q ? fmtPercent(q.changePercent) : "—"}</td>
           <td data-col="shares">${r.shares ?? "—"}</td>
@@ -237,12 +262,27 @@ function renderTable() {
 
 function applyColumnVisibility() {
   COLUMNS.forEach(({ key }) => {
-    const visible = columnPrefs[key] !== false;
+    const visible = compactView ? COMPACT_COLUMNS.has(key) : columnPrefs[key] !== false;
     document.querySelectorAll(`#watchlist-table [data-col="${key}"]`).forEach((el) => {
       el.style.display = visible ? "" : "none";
     });
   });
 }
+
+function applyCompactView() {
+  document.getElementById("watchlist-table").classList.toggle("compact-view", compactView);
+  document.getElementById("compact-toggle-btn").textContent = compactView ? "Full view" : "Compact view";
+  document.getElementById("columns-btn").disabled = compactView;
+  if (compactView) document.getElementById("columns-menu").hidden = true;
+  applyColumnVisibility();
+}
+
+document.getElementById("compact-toggle-btn").addEventListener("click", () => {
+  compactView = !compactView;
+  lsSet(LS_KEYS.compactView, String(compactView));
+  applyCompactView();
+  renderTable();
+});
 
 function renderColumnsMenu() {
   const menu = document.getElementById("columns-menu");
@@ -368,8 +408,10 @@ function applyTheme() {
     document.documentElement.removeAttribute("data-theme");
   }
   const dark = effectiveTheme() === "dark";
-  document.getElementById("theme-icon-sun").hidden = !dark;
-  document.getElementById("theme-icon-moon").hidden = dark;
+  // Inline styles beat any stylesheet rule, so this can't be re-broken by a
+  // future CSS rule that sets display: on these elements (as [hidden] was).
+  document.getElementById("theme-icon-sun").style.display = dark ? "block" : "none";
+  document.getElementById("theme-icon-moon").style.display = dark ? "none" : "block";
 }
 
 document.getElementById("theme-toggle").addEventListener("click", () => {
@@ -394,6 +436,8 @@ document.addEventListener("click", (e) => {
   if (!menu.hidden && !dropdown.contains(e.target)) menu.hidden = true;
 });
 
+applyCompactView();
+
 // --- Version chip / patch notes ---
 
 document.getElementById("version-chip").textContent = `v${APP_VERSION}`;
@@ -416,6 +460,10 @@ document.getElementById("version-chip").addEventListener("click", () => {
   patchnotesDialog.showModal();
 });
 document.getElementById("patchnotes-close-btn").addEventListener("click", () => patchnotesDialog.close());
+
+const faqDialog = document.getElementById("faq-dialog");
+document.getElementById("faq-btn").addEventListener("click", () => faqDialog.showModal());
+document.getElementById("faq-close-btn").addEventListener("click", () => faqDialog.close());
 
 // --- Chart pane ---
 

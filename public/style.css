@@ -259,6 +259,16 @@ table {
   min-width: 720px;
 }
 
+#watchlist-table.compact-view { min-width: 0; }
+
+#watchlist-table.compact-view th,
+#watchlist-table.compact-view td {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
+#watchlist-table.compact-view .symbol-cell { cursor: help; }
+
 th, td {
   text-align: left;
   padding: 10px 14px;
@@ -399,6 +409,10 @@ fieldset legend { font-size: 0.8rem; color: var(--muted); padding: 0 4px; }
   padding-left: 18px;
   font-size: 0.85rem;
 }
+
+.faq-body p { margin: 0 0 12px; font-size: 0.9rem; }
+.faq-body h3 { margin: 0 0 4px; font-size: 0.9rem; }
+#faq-dialog { width: min(480px, 92vw); }
 
 .chart-panel { display: flex; flex-direction: column; }
 .chart-panel[hidden] { display: none; }

@@ -4,12 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>StockDash</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <header class="topbar">
     <h1>StockDash</h1>
     <div class="topbar-actions">
+      <button id="faq-btn" class="btn btn-ghost icon-btn" title="What is this?" aria-label="What is this?">?</button>
       <button id="version-chip" class="btn btn-ghost version-chip" title="View patch notes"></button>
       <span id="user-email" class="muted"></span>
       <span id="last-updated" class="muted"></span>
@@ -43,6 +45,7 @@
         <div class="panel-header">
           <h2>Watchlist</h2>
           <div class="header-actions">
+            <button id="compact-toggle-btn" class="btn btn-ghost">Compact view</button>
             <div class="dropdown" id="columns-dropdown">
               <button id="columns-btn" class="btn btn-ghost">Columns ▾</button>
               <div class="dropdown-menu" id="columns-menu" hidden></div>
@@ -151,6 +154,48 @@
       <div id="patchnotes-body"></div>
       <div class="dialog-actions">
         <button type="button" id="patchnotes-close-btn" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="faq-dialog">
+    <div class="patchnotes">
+      <h2>What is StockDash?</h2>
+      <div class="faq-body">
+        <p>
+          A personal stock/portfolio watchlist with price alerts, built
+          around mortgage-adjacent tickers plus the 10Y Treasury and
+          15Y/30Y mortgage rates.
+        </p>
+        <h3>Where do prices come from?</h3>
+        <p>
+          Live quotes are pulled from Yahoo Finance and refresh automatically
+          every 60 seconds while this tab is open. Rates come from the St.
+          Louis Fed (FRED).
+        </p>
+        <h3>How do alerts work?</h3>
+        <p>
+          Each tracked symbol can have an optional price-high, price-low,
+          and/or % day-change threshold. A background check runs every 15
+          minutes during US market hours; you get an email the moment a
+          threshold is newly crossed, not repeatedly while it holds.
+        </p>
+        <h3>Who can see this?</h3>
+        <p>
+          Anyone signed in through Cloudflare Access. Each signed-in user has
+          their own private watchlist, thresholds, and alert history — you
+          only see and get emailed about your own.
+        </p>
+        <h3>What do Columns / Compact / Chart / theme do?</h3>
+        <p>
+          Display preferences saved in this browser only (not tied to your
+          account): show or hide table columns, switch to a denser compact
+          layout, overlay symbols' price history on a chart, or toggle
+          light/dark.
+        </p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="faq-close-btn" class="btn btn-primary">Close</button>
       </div>
     </div>
   </dialog>
