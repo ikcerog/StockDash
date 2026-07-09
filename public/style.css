@@ -98,6 +98,7 @@ body.chart-open main { max-width: 1400px; }
 }
 
 .icon-btn svg { display: block; }
+.icon-btn svg[hidden] { display: none; }
 
 .version-chip {
   font-size: 0.75rem;
@@ -400,6 +401,7 @@ fieldset legend { font-size: 0.8rem; color: var(--muted); padding: 0 4px; }
 }
 
 .chart-panel { display: flex; flex-direction: column; }
+.chart-panel[hidden] { display: none; }
 
 .chart-controls { display: flex; gap: 8px; }
 
