@@ -10,8 +10,9 @@ moves.
 - **Prices**: pulled live from Yahoo Finance's unofficial chart endpoint (no
   API key needed).
 - **Alerts**: a Cron Trigger runs every 15 minutes during US market hours,
-  checks each tracked stock against its thresholds, and emails you via
-  [Resend](https://resend.com) when a condition is newly crossed.
+  checks each tracked stock against its thresholds, and emails the owning
+  user via [Brevo](https://www.brevo.com) (preferred) or
+  [Resend](https://resend.com) (fallback) when a condition is newly crossed.
 - **Storage**: Cloudflare D1 (SQLite) holds the watchlist, alert state, and
   alert history.
 
@@ -47,11 +48,58 @@ npm run deploy
 After deploying, `wrangler` prints your Worker's `*.workers.dev` URL — open
 it to use the dashboard.
 
+## Authentication (Cloudflare Access)
+
+The deployed Worker sits behind [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/access-controls/):
+the `workers.dev` route is set to **Restricted** in the Workers dashboard
+(Domains tab), so visitors must sign in before reaching the app. As defense
+in depth, the Worker also verifies the `Cf-Access-Jwt-Assertion` header on
+every request it handles (`src/lib/access.ts`) — if the route were ever
+flipped back to Public, the API would still reject unauthenticated requests.
+
+`ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` in `wrangler.toml` identify the Access
+application; update `ACCESS_AUD` if the Access app is ever deleted and
+recreated (the AUD tag is shown in the Restricted dialog on the Domains tab,
+or under Zero Trust > Access > Applications).
+
+## Accounts / multiple users
+
+There is no separate account system: a user's identity is the verified
+email in their Access JWT. Watchlists, thresholds, alert history, and alert
+emails are all scoped to that email (`user_email` columns in D1), so each
+signed-in user sees only their own data and gets alerts at their own
+address.
+
+To add a user, add their email to the Access application's allow policy
+(Zero Trust > Access > Applications, or Manage Cloudflare Access from the
+Worker's Domains tab). They sign in with the same one-time-PIN flow — no
+signup or password anywhere.
+
+**Email provider**: `src/lib/email.ts` sends via
+[Brevo](https://www.brevo.com) if `BREVO_API_KEY` and `BREVO_SENDER_EMAIL`
+are set (as D1 `settings` rows, same pattern as the FRED/Resend keys — see
+`getSetting`/D1 `settings` table), otherwise it falls back to Resend.
+Brevo's free tier verifies a single sender address (click a confirmation
+link — no domain/DNS needed) and can then deliver to any recipient, which
+is why it's preferred over Resend's `onboarding@resend.dev` sender, which
+is sandboxed to the Resend account owner's own address until a full domain
+is verified.
+
 ## Local development
 
 ```bash
 npm run db:migrate:local
 npm run dev
+```
+
+`wrangler dev` has no Access layer in front of it, so requests carry no
+Access JWT. Create a `.dev.vars` file (gitignored) to bypass the JWT check
+locally:
+
+```
+ACCESS_DEV_BYPASS=true
+# Optional: which user to act as locally (defaults to dev@localhost)
+ACCESS_DEV_EMAIL=johnagorecki@gmail.com
 ```
 
 `wrangler dev` runs the Worker against a local D1 instance and serves the
@@ -77,3 +125,17 @@ condition clears and is crossed again later (e.g. a new trading day).
 Add, edit, or remove stocks and their thresholds directly from the
 dashboard UI — no redeploy needed. Symbols are Yahoo Finance tickers (e.g.
 `AAPL`, `MSFT`, `VOO`).
+
+## Dashboard preferences
+
+These are per-browser (stored in `localStorage`), not per-account, so they
+don't follow you across devices:
+- **Columns** — show/hide individual watchlist columns.
+- **Theme** — light/dark toggle in the top bar; defaults to your OS setting
+  until you override it.
+- **Chart** — "Show chart" opens an optional price-history pane next to the
+  watchlist (click a symbol in the table, or use the dropdown, to change
+  what it plots). Backed by `GET /api/history/:symbol?range=`, which pulls
+  from the same Yahoo endpoint as live quotes.
+
+Click the version chip in the top bar for patch notes.

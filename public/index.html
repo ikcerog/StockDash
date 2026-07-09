@@ -4,13 +4,26 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>StockDash</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <header class="topbar">
     <h1>StockDash</h1>
     <div class="topbar-actions">
+      <button id="faq-btn" class="btn btn-ghost icon-btn" title="What is this?" aria-label="What is this?">?</button>
+      <button id="version-chip" class="btn btn-ghost version-chip" title="View patch notes"></button>
+      <span id="user-email" class="muted"></span>
       <span id="last-updated" class="muted"></span>
+      <button id="theme-toggle" class="btn btn-ghost icon-btn" title="Toggle theme" aria-label="Toggle theme">
+        <svg id="theme-icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <svg id="theme-icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
       <button id="refresh-btn" class="btn btn-ghost">Refresh</button>
     </div>
   </header>
@@ -20,34 +33,79 @@
 
     <section class="panel">
       <div class="panel-header">
-        <h2>Watchlist</h2>
-        <button id="add-stock-btn" class="btn btn-primary">+ Add stock</button>
+        <h2>Rates</h2>
       </div>
-      <div class="table-wrap">
-        <table id="watchlist-table">
-          <thead>
-            <tr>
-              <th>Symbol</th>
-              <th>Price</th>
-              <th>Day change</th>
-              <th>Shares</th>
-              <th>Value</th>
-              <th>High alert</th>
-              <th>Low alert</th>
-              <th>% change alert</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="watchlist-body">
-            <tr><td colspan="9" class="muted">Loading…</td></tr>
-          </tbody>
-        </table>
+      <div class="rates" id="rates-cards">
+        <span class="muted">Loading…</span>
       </div>
     </section>
+
+    <div class="workspace" id="workspace">
+      <section class="panel watchlist-panel">
+        <div class="panel-header">
+          <h2>Watchlist</h2>
+          <div class="header-actions">
+            <button id="compact-toggle-btn" class="btn btn-ghost">Compact view</button>
+            <div class="dropdown" id="columns-dropdown">
+              <button id="columns-btn" class="btn btn-ghost">Columns ▾</button>
+              <div class="dropdown-menu" id="columns-menu" hidden></div>
+            </div>
+            <button id="chart-toggle-btn" class="btn btn-ghost">Show chart</button>
+            <button id="add-stock-btn" class="btn btn-primary">+ Add stock</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="watchlist-table">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th data-col="price">Price</th>
+                <th data-col="change">Day change</th>
+                <th data-col="shares">Shares</th>
+                <th data-col="value">Value</th>
+                <th data-col="high">High alert</th>
+                <th data-col="low">Low alert</th>
+                <th data-col="pct">% change alert</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="watchlist-body">
+              <tr><td colspan="9" class="muted">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel chart-panel" id="chart-panel" hidden>
+        <div class="panel-header">
+          <h2>Chart</h2>
+          <div class="chart-controls">
+            <div class="dropdown" id="chart-symbols-dropdown">
+              <button id="chart-symbols-btn" type="button" class="btn btn-ghost">Symbols ▾</button>
+              <div class="dropdown-menu" id="chart-symbols-menu" hidden></div>
+            </div>
+            <select id="chart-range-select">
+              <option value="1mo">1M</option>
+              <option value="3mo">3M</option>
+              <option value="6mo">6M</option>
+              <option value="1y">1Y</option>
+              <option value="5y">5Y</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-body">
+          <svg id="chart-svg" class="chart-svg" viewBox="0 0 600 260" preserveAspectRatio="none"></svg>
+          <div class="chart-legend" id="chart-legend"></div>
+          <div class="chart-empty muted" id="chart-empty">Pick one or more symbols to view their chart.</div>
+          <div class="chart-footer" id="chart-footer"></div>
+        </div>
+      </section>
+    </div>
 
     <section class="panel">
       <div class="panel-header">
         <h2>Recent alerts</h2>
+        <button id="test-email-btn" class="btn btn-ghost">Send test email</button>
       </div>
       <ul id="alert-log" class="alert-log">
         <li class="muted">Loading…</li>
@@ -78,8 +136,8 @@
         <label>Email me if price falls to or below
           <input type="number" step="any" name="price_low" placeholder="e.g. 180" />
         </label>
-        <label>Email me if day change exceeds ±
-          <input type="number" step="any" min="0" name="percent_change_threshold" placeholder="e.g. 5" />%
+        <label>Email me if day change exceeds ± <span class="muted">(comma-separated, e.g. 1, 3, 5, 10)</span>
+          <input type="text" inputmode="decimal" name="percent_change_threshold" placeholder="e.g. 1, 3, 5, 10" />%
         </label>
       </fieldset>
 
@@ -88,6 +146,60 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="patchnotes-dialog">
+    <div class="patchnotes">
+      <h2>What's new</h2>
+      <div id="patchnotes-body"></div>
+      <div class="dialog-actions">
+        <button type="button" id="patchnotes-close-btn" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="faq-dialog">
+    <div class="patchnotes">
+      <h2>What is StockDash?</h2>
+      <div class="faq-body">
+        <p>
+          A personal stock/portfolio watchlist with price alerts, built
+          around mortgage-adjacent tickers plus the 10Y Treasury and
+          15Y/30Y mortgage rates.
+        </p>
+        <h3>Where do prices come from?</h3>
+        <p>
+          Live quotes are pulled from Yahoo Finance and refresh automatically
+          every 60 seconds while this tab is open. Rates come from the St.
+          Louis Fed (FRED).
+        </p>
+        <h3>How do alerts work?</h3>
+        <p>
+          Each tracked symbol can have an optional price-high, price-low,
+          and/or % day-change threshold. % day-change accepts a
+          comma-separated list (e.g. 1, 3, 5, 10) so each move size fires
+          its own alert. A background check runs every 15 minutes during
+          US market hours; you get an email the moment a threshold is
+          newly crossed, not repeatedly while it holds.
+        </p>
+        <h3>Who can see this?</h3>
+        <p>
+          Anyone signed in through Cloudflare Access. Each signed-in user has
+          their own private watchlist, thresholds, and alert history — you
+          only see and get emailed about your own.
+        </p>
+        <h3>What do Columns / Compact / Chart / theme do?</h3>
+        <p>
+          Display preferences saved in this browser only (not tied to your
+          account): show or hide table columns, switch to a denser compact
+          layout, overlay symbols' price history on a chart, or toggle
+          light/dark.
+        </p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="faq-close-btn" class="btn btn-primary">Close</button>
+      </div>
+    </div>
   </dialog>
 
   <script src="/app.js"></script>

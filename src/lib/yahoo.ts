@@ -61,6 +61,50 @@ export async function fetchQuote(symbol: string): Promise<Quote | null> {
   };
 }
 
+export interface HistoryPoint {
+  date: string;
+  close: number;
+}
+
+const VALID_HISTORY_RANGES = new Set(["1mo", "3mo", "6mo", "1y", "5y"]);
+
+interface YahooHistoryResponse {
+  chart: {
+    result: Array<{
+      timestamp?: number[];
+      indicators: { quote: Array<{ close?: Array<number | null> }> };
+    }> | null;
+    error: unknown;
+  };
+}
+
+export async function fetchHistory(symbol: string, range: string): Promise<HistoryPoint[]> {
+  const safeRange = VALID_HISTORY_RANGES.has(range) ? range : "6mo";
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${safeRange}`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as YahooHistoryResponse;
+  const result = data.chart.result?.[0];
+  if (!result?.timestamp) return [];
+
+  const closes = result.indicators.quote[0]?.close ?? [];
+  const points: HistoryPoint[] = [];
+  result.timestamp.forEach((ts, i) => {
+    const close = closes[i];
+    if (typeof close === "number") {
+      points.push({ date: new Date(ts * 1000).toISOString().slice(0, 10), close });
+    }
+  });
+  return points;
+}
+
 export async function fetchQuotes(symbols: string[]): Promise<Map<string, Quote>> {
   const map = new Map<string, Quote>();
   const settled = await Promise.all(
