@@ -452,6 +452,28 @@ fieldset legend { font-size: 0.8rem; color: var(--muted); padding: 0 4px; }
   font-size: 0.85rem;
 }
 
+.chart-mode-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chart-mode-toggle .btn {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.chart-mode-toggle .btn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.chart-mode-toggle .btn.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
 .chart-body {
   position: relative;
   padding: 16px 18px 18px;
@@ -469,10 +491,12 @@ fieldset legend { font-size: 0.8rem; color: var(--muted); padding: 0 4px; }
   margin-top: 8px;
 }
 
-.chart-line { fill: none; stroke: var(--accent); stroke-width: 2; }
+.chart-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .chart-area { fill: var(--accent); opacity: 0.12; }
+.chart-plot-bg { fill: var(--muted); opacity: 0.05; }
 .chart-zero-line { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.6; }
-.chart-grid-line { stroke: var(--muted); stroke-width: 1; opacity: 0.3; }
+.chart-grid-line { stroke: var(--muted); stroke-width: 1; opacity: 0.25; }
+.chart-grid-line-v { stroke: var(--muted); stroke-width: 1; opacity: 0.15; stroke-dasharray: 2 4; }
 .chart-axis-label { font-size: 10px; fill: var(--muted); }
 .chart-hover-line { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.6; }
 .chart-dot { stroke: var(--surface); stroke-width: 1.5; }

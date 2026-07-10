@@ -10,8 +10,40 @@ const fmtAxisDate = (value) =>
 
 const uniqueTicks = (values) => [...new Set(values.map((v) => v.toFixed(6)))].map(parseFloat);
 
-const APP_VERSION = "1.9.1";
+// Catmull-Rom-to-Bezier spline through every point (tension 1/6, the
+// standard uniform factor) so chart lines read as smooth curves instead of
+// straight day-to-day segments, without pulling in a charting library.
+function smoothPath(points) {
+  if (points.length < 2) return "";
+  if (points.length === 2) {
+    return `M${points[0].x.toFixed(2)},${points[0].y.toFixed(2)} L${points[1].x.toFixed(2)},${points[1].y.toFixed(2)}`;
+  }
+  let d = `M${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i === 0 ? 0 : i - 1];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+  }
+  return d;
+}
+
+const APP_VERSION = "1.10.0";
 const CHANGELOG = [
+  {
+    version: "1.10.0",
+    date: "2026-07-10",
+    notes: [
+      "Chart now has a Price / % change toggle, available for any number of symbols (previously price-only for one symbol, % change-only for multiple).",
+      "Chart lines are now smoothed (Catmull-Rom spline) instead of straight day-to-day segments.",
+      "Added a fuller grid backdrop: a shaded plot background plus vertical gridlines at each date tick, alongside the existing horizontal gridlines.",
+    ],
+  },
   {
     version: "1.9.1",
     date: "2026-07-10",
@@ -103,6 +135,7 @@ const LS_KEYS = {
   chartVisible: "stockdash:chartVisible",
   chartSymbols: "stockdash:chartSymbols",
   chartRange: "stockdash:chartRange",
+  chartMode: "stockdash:chartMode",
 };
 
 const CHART_COLORS = ["#2563eb", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#0ea5e9", "#ec4899", "#84cc16"];
@@ -169,6 +202,8 @@ if (chartSymbols === null) {
   chartSymbols = legacy ? [legacy] : [];
 }
 let chartRange = lsGet(LS_KEYS.chartRange) || "6mo";
+let chartMode = lsGet(LS_KEYS.chartMode) === "percent" ? "percent" : "price";
+let chartSeries = [];
 
 function colorForSymbol(symbol) {
   const idx = chartSymbols.indexOf(symbol);
@@ -644,6 +679,23 @@ document.getElementById("chart-range-select").addEventListener("change", (e) => 
   loadChart();
 });
 
+function applyChartModeButtons() {
+  document.querySelectorAll(".chart-mode-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === chartMode);
+  });
+}
+
+document.querySelectorAll(".chart-mode-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.mode === chartMode) return;
+    chartMode = btn.dataset.mode;
+    lsSet(LS_KEYS.chartMode, chartMode);
+    applyChartModeButtons();
+    renderChartBody();
+  });
+});
+applyChartModeButtons();
+
 function renderChartLegend(series) {
   const legend = document.getElementById("chart-legend");
   legend.innerHTML = series
@@ -661,18 +713,9 @@ function renderChartLegend(series) {
 }
 
 async function loadChart() {
-  const svg = document.getElementById("chart-svg");
-  const empty = document.getElementById("chart-empty");
-  const footer = document.getElementById("chart-footer");
-  const legend = document.getElementById("chart-legend");
-
   if (!chartVisible || chartSymbols.length === 0) {
-    svg.innerHTML = "";
-    hideTooltip();
-    legend.innerHTML = "";
-    footer.textContent = "";
-    empty.hidden = false;
-    empty.textContent = "Pick one or more symbols to view their chart.";
+    chartSeries = [];
+    renderChartBody("Pick one or more symbols to view their chart.");
     return;
   }
 
@@ -683,128 +726,64 @@ async function loadChart() {
         return { symbol, points: data.points ?? [] };
       }),
     );
-    const series = results
+    chartSeries = results
       .filter((s) => s.points.length >= 2)
       .map((s) => ({ ...s, color: colorForSymbol(s.symbol) }));
-
-    if (series.length === 0) {
-      svg.innerHTML = "";
-      hideTooltip();
-      legend.innerHTML = "";
-      footer.textContent = "";
-      empty.hidden = false;
-      empty.textContent = "No chart data available for the selected symbol(s).";
-      return;
-    }
-
-    empty.hidden = true;
-    renderChartLegend(series);
-
-    if (series.length === 1) {
-      drawSingleChart(svg, series[0]);
-      const points = series[0].points;
-      const first = points[0];
-      const last = points[points.length - 1];
-      const change = last.close - first.close;
-      const changePct = first.close ? (change / first.close) * 100 : null;
-      footer.innerHTML = `
-        <span>${first.date} — ${last.date}</span>
-        <span class="${change >= 0 ? "up" : "down"}">${fmtMoney(last.close)} (${fmtPercent(changePct)})</span>
-      `;
-    } else {
-      drawOverlayChart(svg, series);
-      footer.innerHTML = `<span>% change over the selected range, normalized to each symbol's starting price</span>`;
-    }
+    renderChartBody(chartSeries.length === 0 ? "No chart data available for the selected symbol(s)." : null);
   } catch (err) {
-    svg.innerHTML = "";
-    hideTooltip();
-    legend.innerHTML = "";
-    empty.hidden = false;
-    empty.textContent = `Chart unavailable: ${err.message}`;
-    footer.textContent = "";
+    chartSeries = [];
+    renderChartBody(`Chart unavailable: ${err.message}`);
   }
 }
 
-// Single symbol: raw price line with area fill, for a detailed look.
-function drawSingleChart(svg, series) {
-  const points = series.points;
-  const width = 600;
-  const height = 260;
-  const padding = { top: 16, right: 16, bottom: 30, left: 58 };
-  const values = points.map((p) => p.close);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
+// Renders (or re-renders, e.g. on a price/% mode toggle) from whatever is
+// currently in chartSeries, without refetching from the API.
+function renderChartBody(emptyMessage) {
+  const svg = document.getElementById("chart-svg");
+  const empty = document.getElementById("chart-empty");
+  const footer = document.getElementById("chart-footer");
+  const legend = document.getElementById("chart-legend");
 
-  const x = (i) => padding.left + (i / (points.length - 1)) * (width - padding.left - padding.right);
-  const y = (v) => padding.top + (1 - (v - min) / range) * (height - padding.top - padding.bottom);
-
-  const linePath = points
-    .map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(2)},${y(p.close).toFixed(2)}`)
-    .join(" ");
-  const baseline = (height - padding.bottom).toFixed(2);
-  const areaPath = `${linePath} L${x(points.length - 1).toFixed(2)},${baseline} L${x(0).toFixed(2)},${baseline} Z`;
-
-  const yGrid = uniqueTicks([min, min + range / 2, max])
-    .map(
-      (v) => `
-        <line class="chart-grid-line" x1="${padding.left}" y1="${y(v).toFixed(2)}" x2="${width - padding.right}" y2="${y(v).toFixed(2)}"></line>
-        <text class="chart-axis-label" x="${padding.left - 6}" y="${y(v).toFixed(2)}" text-anchor="end" dominant-baseline="middle">${fmtMoney(v)}</text>
-      `,
-    )
-    .join("");
-
-  const xTickCount = Math.min(5, points.length);
-  const xTicks = [...new Set(Array.from({ length: xTickCount }, (_, i) => Math.round((i / (xTickCount - 1)) * (points.length - 1))))];
-  const xLabels = xTicks
-    .map((idx, i) => {
-      const anchor = i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle";
-      return `<text class="chart-axis-label" x="${x(idx).toFixed(2)}" y="${height - 8}" text-anchor="${anchor}">${fmtAxisDate(points[idx].date)}</text>`;
-    })
-    .join("");
-
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.innerHTML = `
-    ${yGrid}
-    <path class="chart-area" style="fill:${series.color}" d="${areaPath}"></path>
-    <path class="chart-line" style="stroke:${series.color}" d="${linePath}"></path>
-    ${xLabels}
-    <line class="chart-hover-line" x1="0" y1="${padding.top}" x2="0" y2="${height - padding.bottom}" hidden></line>
-    <circle class="chart-dot" r="4" style="fill:${series.color}" hidden></circle>
-  `;
-
-  const hoverLine = svg.querySelector(".chart-hover-line");
-  const dot = svg.querySelector(".chart-dot");
-
-  svg.onmousemove = (e) => {
-    const rect = svg.getBoundingClientRect();
-    const relX = ((e.clientX - rect.left) / rect.width) * width;
-    let idx = Math.round(((relX - padding.left) / (width - padding.left - padding.right)) * (points.length - 1));
-    idx = Math.max(0, Math.min(points.length - 1, idx));
-    const p = points[idx];
-    const cx = x(idx);
-    const cy = y(p.close);
-    hoverLine.setAttribute("x1", cx.toFixed(2));
-    hoverLine.setAttribute("x2", cx.toFixed(2));
-    hoverLine.hidden = false;
-    dot.setAttribute("cx", cx.toFixed(2));
-    dot.setAttribute("cy", cy.toFixed(2));
-    dot.hidden = false;
-    showTooltip(svg, `${p.date}: ${fmtMoney(p.close)}`, cx, cy);
-  };
-  svg.onmouseleave = () => {
-    hoverLine.hidden = true;
-    dot.hidden = true;
+  if (emptyMessage) {
+    svg.innerHTML = "";
     hideTooltip();
-  };
+    legend.innerHTML = "";
+    footer.textContent = "";
+    empty.hidden = false;
+    empty.textContent = emptyMessage;
+    return;
+  }
+
+  empty.hidden = true;
+  renderChartLegend(chartSeries);
+  drawChart(svg, chartSeries, chartMode);
+
+  if (chartMode === "percent") {
+    footer.innerHTML = `<span>% change over the selected range, normalized to each symbol's starting price</span>`;
+  } else if (chartSeries.length === 1) {
+    const points = chartSeries[0].points;
+    const first = points[0];
+    const last = points[points.length - 1];
+    const change = last.close - first.close;
+    const changePct = first.close ? (change / first.close) * 100 : null;
+    footer.innerHTML = `
+      <span>${first.date} — ${last.date}</span>
+      <span class="${change >= 0 ? "up" : "down"}">${fmtMoney(last.close)} (${fmtPercent(changePct)})</span>
+    `;
+  } else {
+    footer.innerHTML = `<span>Price over the selected range</span>`;
+  }
 }
 
-// Multiple symbols: normalized % change from each symbol's first point in
-// range, so tickers at very different price levels overlay meaningfully.
-function drawOverlayChart(svg, series) {
+// Draws either raw price or normalized %-change for one or more symbols,
+// sharing one axis/grid/hover implementation between both modes and symbol
+// counts. mode: "price" | "percent".
+function drawChart(svg, series, mode) {
   const width = 600;
   const height = 260;
-  const padding = { top: 16, right: 16, bottom: 30, left: 50 };
+  const padding = { top: 16, right: 16, bottom: 30, left: mode === "percent" ? 50 : 58 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
 
   const allTimes = series.flatMap((s) => s.points.map((p) => new Date(p.date).getTime()));
   const minTime = Math.min(...allTimes);
@@ -817,39 +796,42 @@ function drawOverlayChart(svg, series) {
       ...s,
       values: s.points.map((p) => ({
         t: new Date(p.date).getTime(),
-        v: first ? ((p.close - first) / first) * 100 : 0,
+        v: mode === "percent" ? (first ? ((p.close - first) / first) * 100 : 0) : p.close,
         date: p.date,
         close: p.close,
       })),
     };
   });
 
-  const allValues = normalized.flatMap((s) => s.values.map((v) => v.v)).concat([0]);
+  const allValues = normalized.flatMap((s) => s.values.map((v) => v.v));
+  if (mode === "percent") allValues.push(0);
   const minV = Math.min(...allValues);
   const maxV = Math.max(...allValues);
   const vRange = maxV - minV || 1;
 
-  const x = (t) => padding.left + ((t - minTime) / timeRange) * (width - padding.left - padding.right);
-  const y = (v) => padding.top + (1 - (v - minV) / vRange) * (height - padding.top - padding.bottom);
-  const zeroY = y(0).toFixed(2);
+  const x = (t) => padding.left + ((t - minTime) / timeRange) * plotWidth;
+  const y = (v) => padding.top + (1 - (v - minV) / vRange) * plotHeight;
+  const fmtValue = (v) => (mode === "percent" ? `${v >= 0 ? "+" : ""}${v.toFixed(2)}%` : fmtMoney(v));
+  const fmtAxisValue = (v) => (mode === "percent" ? `${v.toFixed(1)}%` : fmtMoney(v));
 
-  const lines = normalized
-    .map((s) => {
-      const d = s.values.map((v, i) => `${i === 0 ? "M" : "L"}${x(v.t).toFixed(2)},${y(v.v).toFixed(2)}`).join(" ");
-      return `<path class="chart-line" style="stroke:${s.color}" d="${d}"></path>`;
-    })
-    .join("");
+  const plotBg = `<rect class="chart-plot-bg" x="${padding.left}" y="${padding.top}" width="${plotWidth.toFixed(2)}" height="${plotHeight.toFixed(2)}"></rect>`;
 
-  const yGrid = uniqueTicks([minV, 0, maxV])
+  const yTickValues = mode === "percent" ? [minV, 0, maxV] : [minV, minV + vRange / 2, maxV];
+  const yGrid = uniqueTicks(yTickValues)
     .map(
-      (v) =>
-        `<text class="chart-axis-label" x="${padding.left - 6}" y="${y(v).toFixed(2)}" text-anchor="end" dominant-baseline="middle">${v.toFixed(1)}%</text>`,
+      (v) => `
+        <line class="chart-grid-line" x1="${padding.left}" y1="${y(v).toFixed(2)}" x2="${width - padding.right}" y2="${y(v).toFixed(2)}"></line>
+        <text class="chart-axis-label" x="${padding.left - 6}" y="${y(v).toFixed(2)}" text-anchor="end" dominant-baseline="middle">${fmtAxisValue(v)}</text>
+      `,
     )
     .join("");
 
   const longestSeries = normalized.reduce((a, b) => (a.values.length >= b.values.length ? a : b));
   const xTickCount = Math.min(5, longestSeries.values.length);
   const xTickTimes = Array.from({ length: xTickCount }, (_, i) => minTime + (i / (xTickCount - 1)) * timeRange);
+  const xGrid = xTickTimes
+    .map((t) => `<line class="chart-grid-line-v" x1="${x(t).toFixed(2)}" y1="${padding.top}" x2="${x(t).toFixed(2)}" y2="${height - padding.bottom}"></line>`)
+    .join("");
   const xLabels = xTickTimes
     .map((t, i) => {
       const anchor = i === 0 ? "start" : i === xTickTimes.length - 1 ? "end" : "middle";
@@ -857,14 +839,39 @@ function drawOverlayChart(svg, series) {
     })
     .join("");
 
+  const zeroLine =
+    mode === "percent"
+      ? `<line x1="${padding.left}" y1="${y(0).toFixed(2)}" x2="${width - padding.right}" y2="${y(0).toFixed(2)}" class="chart-zero-line"></line>`
+      : "";
+
+  const lines = normalized
+    .map((s) => {
+      const d = smoothPath(s.values.map((v) => ({ x: x(v.t), y: y(v.v) })));
+      return `<path class="chart-line" style="stroke:${s.color}" d="${d}"></path>`;
+    })
+    .join("");
+
+  // Area fill only reads well for a single price-mode line; with multiple
+  // series (or normalized % values crossing zero) it just muddies things.
+  let areaPath = "";
+  if (mode === "price" && normalized.length === 1) {
+    const pts = normalized[0].values.map((v) => ({ x: x(v.t), y: y(v.v) }));
+    const baseline = (height - padding.bottom).toFixed(2);
+    const d = `${smoothPath(pts)} L${pts[pts.length - 1].x.toFixed(2)},${baseline} L${pts[0].x.toFixed(2)},${baseline} Z`;
+    areaPath = `<path class="chart-area" style="fill:${normalized[0].color}" d="${d}"></path>`;
+  }
+
   const dots = normalized
     .map((s) => `<circle class="chart-dot" data-symbol="${s.symbol}" r="4" style="fill:${s.color}" hidden></circle>`)
     .join("");
 
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.innerHTML = `
-    <line x1="${padding.left}" y1="${zeroY}" x2="${width - padding.right}" y2="${zeroY}" class="chart-zero-line"></line>
+    ${plotBg}
+    ${xGrid}
     ${yGrid}
+    ${zeroLine}
+    ${areaPath}
     ${lines}
     ${xLabels}
     <line class="chart-hover-line" x1="0" y1="${padding.top}" x2="0" y2="${height - padding.bottom}" hidden></line>
@@ -877,9 +884,10 @@ function drawOverlayChart(svg, series) {
   svg.onmousemove = (e) => {
     const rect = svg.getBoundingClientRect();
     const relX = ((e.clientX - rect.left) / rect.width) * width;
-    const t = minTime + ((relX - padding.left) / (width - padding.left - padding.right)) * timeRange;
+    const t = minTime + ((relX - padding.left) / plotWidth) * timeRange;
     const cx = Math.max(padding.left, Math.min(width - padding.right, relX));
 
+    let singleY = padding.top;
     const lines = normalized.map((s) => {
       let nearest = s.values[0];
       let bestDiff = Infinity;
@@ -896,12 +904,13 @@ function drawOverlayChart(svg, series) {
         dot.setAttribute("cy", y(nearest.v).toFixed(2));
         dot.hidden = false;
       }
-      return `${s.symbol}: ${nearest.v >= 0 ? "+" : ""}${nearest.v.toFixed(2)}%`;
+      if (normalized.length === 1) singleY = y(nearest.v);
+      return normalized.length > 1 ? `${s.symbol}: ${fmtValue(nearest.v)}` : `${nearest.date}: ${fmtValue(nearest.v)}`;
     });
     hoverLine.setAttribute("x1", cx.toFixed(2));
     hoverLine.setAttribute("x2", cx.toFixed(2));
     hoverLine.hidden = false;
-    showTooltip(svg, lines.join("\n"), cx, padding.top);
+    showTooltip(svg, lines.join("\n"), cx, singleY);
   };
   svg.onmouseleave = () => {
     hoverLine.hidden = true;
