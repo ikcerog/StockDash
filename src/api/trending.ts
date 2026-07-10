@@ -67,8 +67,43 @@ interface MarketItem {
 
 const MARKETS_CACHE_KEY = "TRENDING_MARKETS_ITEMS";
 const MARKETS_CACHE_TIME_KEY = "TRENDING_MARKETS_FETCHED_AT";
+// Fetch a wide pool sorted by 24h volume, then filter it down to
+// housing/economy-relevant markets client-side (see MARKET_RELEVANCE_PATTERNS
+// below) rather than relying on Polymarket's own category tags, which aren't
+// verified against a live response in this environment.
 const MARKETS_URL =
-  "https://gamma-api.polymarket.com/markets?active=true&closed=false&order=volume24hr&ascending=false&limit=15";
+  "https://gamma-api.polymarket.com/markets?active=true&closed=false&order=volume24hr&ascending=false&limit=100";
+// Ticker shows on-topic markets first, then backfills remaining slots with
+// general top-volume markets so it's never sparse on days when few
+// housing/Fed markets are actively trading.
+const TICKER_SIZE = 10;
+
+const MARKET_RELEVANCE_PATTERNS = [
+  /housing/i,
+  /real estate/i,
+  /mortgage/i,
+  /home price/i,
+  /home sales/i,
+  /rent/i,
+  /\bfed\b/i,
+  /federal reserve/i,
+  /powell/i,
+  /interest rate/i,
+  /rate (cut|hike|decision)/i,
+  /inflation/i,
+  /\bcpi\b/i,
+  /\bgdp\b/i,
+  /recession/i,
+  /unemployment/i,
+  /jobs report/i,
+  /jobless/i,
+  /treasury/i,
+  /yield/i,
+];
+
+function isMarketRelevant(item: MarketItem): boolean {
+  return MARKET_RELEVANCE_PATTERNS.some((p) => p.test(item.title));
+}
 
 function parseMarket(raw: unknown): MarketItem | null {
   if (typeof raw !== "object" || raw === null) return null;
@@ -103,10 +138,14 @@ trendingRoutes.get("/markets", async (c) => {
     const raw = (await res.json()) as unknown[];
     if (!Array.isArray(raw)) throw new Error("unexpected response shape");
 
-    const items = raw
-      .map(parseMarket)
-      .filter((m): m is MarketItem => m !== null)
-      .slice(0, 10);
+    const parsed = raw.map(parseMarket).filter((m): m is MarketItem => m !== null);
+
+    // Already sorted by 24h volume (via the API's `order` param); lead with
+    // on-topic markets and backfill with general top-volume ones if there
+    // aren't enough to fill the ticker.
+    const relevant = parsed.filter(isMarketRelevant);
+    const rest = parsed.filter((m) => !isMarketRelevant(m));
+    const items = [...relevant, ...rest].slice(0, TICKER_SIZE);
     if (items.length === 0) throw new Error("no usable markets in response");
 
     await setSetting(c.env.DB, MARKETS_CACHE_KEY, JSON.stringify(items));
