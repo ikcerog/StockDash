@@ -10,8 +10,16 @@ const fmtAxisDate = (value) =>
 
 const uniqueTicks = (values) => [...new Set(values.map((v) => v.toFixed(6)))].map(parseFloat);
 
-const APP_VERSION = "1.8.0";
+const APP_VERSION = "1.9.0";
 const CHANGELOG = [
+  {
+    version: "1.9.0",
+    date: "2026-07-10",
+    notes: [
+      "Replaced the Portfolio value summary card with RKT's live price and day change.",
+      "Replaced the Day change summary card with a rotating ticker of recent mortgage-industry headlines.",
+    ],
+  },
   {
     version: "1.8.0",
     date: "2026-07-09",
@@ -193,34 +201,74 @@ function percentThresholdCell(value) {
   return `<span class="threshold-set">${parts}</span>`;
 }
 
+// Card DOM is built once and updated in place on refresh, so the
+// independently-driven news ticker (see below) never gets clobbered by a
+// summary re-render.
 function renderSummary() {
-  const withValue = rows.filter((r) => r.market_value !== null);
-  const totalValue = withValue.reduce((sum, r) => sum + r.market_value, 0);
-  const totalPrevValue = withValue.reduce(
-    (sum, r) => sum + (r.quote ? r.quote.previousClose * r.shares : 0),
-    0,
-  );
-  const dayChange = totalValue - totalPrevValue;
-  const dayChangePct = totalPrevValue ? (dayChange / totalPrevValue) * 100 : null;
-
   const container = document.getElementById("summary-cards");
-  container.innerHTML = `
-    <div class="stat-card">
-      <div class="label">Tracked stocks</div>
-      <div class="value">${rows.length}</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Portfolio value</div>
-      <div class="value">${withValue.length ? fmtMoney(totalValue) : "—"}</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Day change</div>
-      <div class="value ${dayChange >= 0 ? "up" : "down"}">${
-        withValue.length ? `${fmtMoney(dayChange)} (${fmtPercent(dayChangePct)})` : "—"
-      }</div>
-    </div>
+  if (!container.dataset.built) {
+    container.innerHTML = `
+      <div class="stat-card">
+        <div class="label">Tracked stocks</div>
+        <div class="value" id="stat-tracked">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">RKT price</div>
+        <div class="value" id="stat-rkt">—</div>
+      </div>
+      <div class="stat-card news-card">
+        <div class="label">Mortgage news</div>
+        <div class="value news-ticker" id="news-ticker"><span class="muted">Loading…</span></div>
+      </div>
+    `;
+    container.dataset.built = "true";
+  }
+
+  document.getElementById("stat-tracked").textContent = rows.length;
+
+  const rkt = rows.find((r) => r.symbol === "RKT");
+  const rktQuote = rkt?.quote;
+  const rktEl = document.getElementById("stat-rkt");
+  rktEl.textContent = rktQuote ? `${fmtMoney(rktQuote.price)} (${fmtPercent(rktQuote.changePercent)})` : "—";
+  rktEl.className = `value${rktQuote ? (rktQuote.changePercent >= 0 ? " up" : " down") : ""}`;
+}
+
+// --- Mortgage news ticker ---
+
+let newsItems = [];
+let newsIndex = 0;
+
+async function loadNews() {
+  try {
+    const data = await api("/api/news");
+    newsItems = data.items ?? [];
+  } catch {
+    newsItems = [];
+  }
+  newsIndex = 0;
+  renderNewsTicker();
+}
+
+function renderNewsTicker() {
+  const el = document.getElementById("news-ticker");
+  if (!el) return; // summary cards not built yet
+  if (newsItems.length === 0) {
+    el.innerHTML = `<span class="muted">No news available.</span>`;
+    return;
+  }
+  const item = newsItems[newsIndex % newsItems.length];
+  el.innerHTML = `
+    <a href="${escapeAttr(item.link)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(item.title)}">${item.title}</a>${
+      item.source ? `<span class="news-source"> — ${item.source}</span>` : ""
+    }
   `;
 }
+
+setInterval(() => {
+  if (newsItems.length === 0) return;
+  newsIndex = (newsIndex + 1) % newsItems.length;
+  renderNewsTicker();
+}, 6000);
 
 function renderTable() {
   const body = document.getElementById("watchlist-body");
@@ -907,3 +955,6 @@ api("/api/me")
 
 refreshAll();
 setInterval(refreshAll, 60_000);
+
+loadNews();
+setInterval(loadNews, 15 * 60_000);

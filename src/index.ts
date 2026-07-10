@@ -5,6 +5,7 @@ import { quotesRoutes } from "./api/quotes";
 import { alertsRoutes } from "./api/alerts";
 import { ratesRoutes } from "./api/rates";
 import { historyRoutes } from "./api/history";
+import { newsRoutes } from "./api/news";
 import { runAlertCheck } from "./scheduled";
 import { requireAccessJwt } from "./lib/access";
 
@@ -17,6 +18,7 @@ app.route("/api/quotes", quotesRoutes);
 app.route("/api/alerts", alertsRoutes);
 app.route("/api/rates", ratesRoutes);
 app.route("/api/history", historyRoutes);
+app.route("/api/news", newsRoutes);
 
 export default {
   fetch: app.fetch,

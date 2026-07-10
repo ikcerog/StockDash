@@ -157,6 +157,28 @@ body.chart-open main { max-width: 1400px; }
   font-weight: 600;
 }
 
+.news-card .value {
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.news-ticker a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.news-ticker a:hover {
+  text-decoration: underline;
+}
+
+.news-source {
+  color: var(--muted);
+  font-weight: 400;
+}
+
 .rates {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
