@@ -347,10 +347,17 @@ body.chart-open main { max-width: 1400px; }
 
 .panel-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   padding: 16px 18px;
   border-bottom: 1px solid var(--border);
+}
+
+.panel-header .header-actions,
+.panel-header .chart-controls {
+  width: 100%;
+  flex-wrap: wrap;
 }
 
 .panel-header h2 {
@@ -383,18 +390,6 @@ body.chart-open main { max-width: 1400px; }
    window, making the chart drop below the table instead of beside it. */
 @media (max-width: 640px) {
   .workspace.chart-visible { grid-template-columns: 1fr; }
-
-  .panel-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .panel-header .header-actions,
-  .panel-header .chart-controls {
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
 }
 
 .workspace .panel { margin-bottom: 0; }
