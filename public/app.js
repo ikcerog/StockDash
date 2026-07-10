@@ -33,8 +33,15 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.14.0";
+const APP_VERSION = "1.15.0";
 const CHANGELOG = [
+  {
+    version: "1.15.0",
+    date: "2026-07-10",
+    notes: [
+      'Typography refresh: Castoro Titling now sets the site header and panel section titles as a serif accent, with Arial handling the rest of the UI for a clean juxtaposition.',
+    ],
+  },
   {
     version: "1.14.0",
     date: "2026-07-10",
