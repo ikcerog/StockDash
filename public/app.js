@@ -605,23 +605,68 @@ function renderColumnsMenu() {
   });
 }
 
+// Builds the "waiting" notifications list: one entry per configured
+// threshold (price_high/price_low/each percent_change value) that hasn't
+// fired yet, or fired previously but has since reset (alert_state.active
+// is only 1 while a fired alert's condition still holds).
+function computeWaitingAlerts(watchlistRows, states) {
+  const stateByKey = new Map(states.map((s) => [`${s.watchlist_id}:${s.alert_type}:${s.threshold_key}`, s]));
+  const isWaiting = (watchlistId, alertType, thresholdKey) =>
+    stateByKey.get(`${watchlistId}:${alertType}:${thresholdKey}`)?.active !== 1;
+
+  const waiting = [];
+  for (const row of watchlistRows) {
+    if (row.price_high !== null && isWaiting(row.id, "price_high", "")) {
+      waiting.push({ symbol: row.symbol, label: `alert when price rises to $${Number(row.price_high).toFixed(2)}` });
+    }
+    if (row.price_low !== null && isWaiting(row.id, "price_low", "")) {
+      waiting.push({ symbol: row.symbol, label: `alert when price falls to $${Number(row.price_low).toFixed(2)}` });
+    }
+    if (row.percent_change_threshold) {
+      for (const raw of row.percent_change_threshold.split(",")) {
+        const threshold = raw.trim();
+        if (threshold && isWaiting(row.id, "percent_change", threshold)) {
+          waiting.push({ symbol: row.symbol, label: `alert on day move past ±${threshold}%` });
+        }
+      }
+    }
+  }
+  waiting.sort((a, b) => a.symbol.localeCompare(b.symbol) || a.label.localeCompare(b.label));
+  return waiting;
+}
+
 async function renderAlertLog() {
   const list = document.getElementById("alert-log");
-  const entries = await api("/api/alerts?limit=20");
-  if (entries.length === 0) {
-    list.innerHTML = `<li class="muted">No alerts sent yet.</li>`;
+  const badge = document.getElementById("notif-waiting-badge");
+  const [sent, states] = await Promise.all([api("/api/alerts?limit=20"), api("/api/alerts/state")]);
+  const waiting = computeWaitingAlerts(rows, states);
+
+  badge.hidden = waiting.length === 0;
+  badge.textContent = waiting.length === 1 ? "1 waiting" : `${waiting.length} waiting`;
+
+  if (waiting.length === 0 && sent.length === 0) {
+    list.innerHTML = `<li class="muted">No notifications configured yet.</li>`;
     return;
   }
-  list.innerHTML = entries
-    .map(
-      (e) => `
-        <li>
-          ${e.message}
-          <span class="alert-time">${new Date(e.sent_at.replace(" ", "T") + "Z").toLocaleString()}</span>
-        </li>
-      `,
-    )
-    .join("");
+
+  const waitingHtml = waiting.map(
+    (w) => `
+      <li class="notif-waiting">
+        <span class="notif-badge notif-badge-waiting">Waiting</span>
+        ${w.symbol} — ${w.label}
+      </li>
+    `,
+  );
+  const sentHtml = sent.map(
+    (e) => `
+      <li>
+        <span class="notif-badge notif-badge-sent">Sent</span>
+        ${e.message}
+        <span class="alert-time">${new Date(e.sent_at.replace(" ", "T") + "Z").toLocaleString()}</span>
+      </li>
+    `,
+  );
+  list.innerHTML = waitingHtml.concat(sentHtml).join("");
 }
 
 async function renderRates() {
@@ -667,7 +712,10 @@ async function loadWatchlist() {
 }
 
 async function refreshAll() {
-  await Promise.all([loadWatchlist(), renderAlertLog(), renderRates()]);
+  // renderAlertLog reads the `rows` global that loadWatchlist populates, so it
+  // must go after, not run concurrently with it.
+  await loadWatchlist();
+  await Promise.all([renderAlertLog(), renderRates()]);
 }
 
 function openDialog(row) {

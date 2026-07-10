@@ -1,4 +1,4 @@
-import type { AlertLogEntry, AlertType, WatchlistInput, WatchlistItem } from "../types";
+import type { AlertLogEntry, AlertStateEntry, AlertType, WatchlistInput, WatchlistItem } from "../types";
 
 // Copy the baseline symbols into a user's watchlist on their first visit.
 // user_seeded records who has been seeded, so users who later delete a
@@ -173,5 +173,19 @@ export async function listAlertLog(db: D1Database, userEmail: string, limit = 50
     .prepare("SELECT * FROM alert_log WHERE user_email = ? ORDER BY sent_at DESC LIMIT ?")
     .bind(userEmail, limit)
     .all<AlertLogEntry>();
+  return results;
+}
+
+// Scoped to the user via a join, since alert_state itself has no user_email column.
+export async function listAlertStates(db: D1Database, userEmail: string): Promise<AlertStateEntry[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT a.watchlist_id, a.alert_type, a.threshold_key, a.active, a.last_value, a.updated_at
+       FROM alert_state a
+       JOIN watchlist w ON w.id = a.watchlist_id
+       WHERE w.user_email = ?`,
+    )
+    .bind(userEmail)
+    .all<AlertStateEntry>();
   return results;
 }

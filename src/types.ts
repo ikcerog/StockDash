@@ -52,3 +52,15 @@ export interface AlertLogEntry {
   value: number | null;
   sent_at: string;
 }
+
+// Mirrors the alert_state table: tracks whether a configured threshold has
+// already fired and is currently holding (active=1) or is armed/waiting to
+// fire (active=0 or no row at all).
+export interface AlertStateEntry {
+  watchlist_id: number;
+  alert_type: AlertType;
+  threshold_key: string;
+  active: number;
+  last_value: number | null;
+  updated_at: string;
+}

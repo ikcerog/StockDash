@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../types";
-import { listAlertLog } from "../lib/db";
+import { listAlertLog, listAlertStates } from "../lib/db";
 import { sendAlertEmail } from "../lib/email";
 
 export const alertsRoutes = new Hono<AppEnv>();
@@ -9,6 +9,13 @@ alertsRoutes.get("/", async (c) => {
   const limit = Number(c.req.query("limit") ?? "50");
   const entries = await listAlertLog(c.env.DB, c.get("userEmail"), Number.isFinite(limit) ? limit : 50);
   return c.json(entries);
+});
+
+// State of each configured threshold, so the UI can tell which alerts are
+// still armed/waiting to fire versus already triggered and currently holding.
+alertsRoutes.get("/state", async (c) => {
+  const states = await listAlertStates(c.env.DB, c.get("userEmail"));
+  return c.json(states);
 });
 
 alertsRoutes.post("/test", async (c) => {
