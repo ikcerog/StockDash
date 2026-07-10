@@ -33,8 +33,15 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.13.0";
+const APP_VERSION = "1.14.0";
 const CHANGELOG = [
+  {
+    version: "1.14.0",
+    date: "2026-07-10",
+    notes: [
+      'Recent alerts panel renamed to "Notifications" and now also lists alerts you\'ve configured that haven\'t triggered yet (tagged "Waiting"), alongside already-sent ones (tagged "Sent"), with a count badge in the header.',
+    ],
+  },
   {
     version: "1.13.0",
     date: "2026-07-10",
