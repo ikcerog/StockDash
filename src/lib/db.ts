@@ -161,6 +161,13 @@ export async function getSetting(db: D1Database, key: string): Promise<string | 
   }
 }
 
+export async function setSetting(db: D1Database, key: string, value: string): Promise<void> {
+  await db
+    .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value")
+    .bind(key, value)
+    .run();
+}
+
 export async function listAlertLog(db: D1Database, userEmail: string, limit = 50): Promise<AlertLogEntry[]> {
   const { results } = await db
     .prepare("SELECT * FROM alert_log WHERE user_email = ? ORDER BY sent_at DESC LIMIT ?")

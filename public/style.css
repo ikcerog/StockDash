@@ -193,6 +193,7 @@ body.chart-open main { max-width: 1400px; }
 
 .news-outlet { font-weight: 600; }
 .news-sep { opacity: 0.6; }
+.news-stale { font-style: italic; }
 
 .rates {
   display: grid;

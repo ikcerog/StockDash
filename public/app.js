@@ -33,8 +33,15 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.10.3";
+const APP_VERSION = "1.10.4";
 const CHANGELOG = [
+  {
+    version: "1.10.4",
+    date: "2026-07-10",
+    notes: [
+      "News ticker is now more resilient to Google News rate-limiting: falls back to HousingWire/CNBC if Google's feed is unavailable, and to the last successful fetch (marked \"cached\") if every live source fails.",
+    ],
+  },
   {
     version: "1.10.3",
     date: "2026-07-10",
@@ -299,11 +306,13 @@ function renderSummary() {
 
 let newsItems = [];
 let newsIndex = 0;
+let newsStale = false;
 
 async function loadNews(isRetry = false) {
   try {
     const data = await api("/api/news");
     newsItems = data.items ?? [];
+    newsStale = Boolean(data.stale);
     newsIndex = 0;
     renderNewsTicker();
   } catch (err) {
@@ -350,6 +359,7 @@ function renderNewsTicker(errorMessage) {
       ${item.source ? `<span class="news-outlet">${escapeAttr(item.source)}</span>` : ""}
       ${item.source && time ? `<span class="news-sep">·</span>` : ""}
       ${time ? `<time class="news-time">${time}</time>` : ""}
+      ${newsStale ? `<span class="news-sep">·</span><span class="news-stale" title="Live feed unavailable; showing the last successful fetch">cached</span>` : ""}
     </div>
   `;
 }
