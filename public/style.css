@@ -161,15 +161,39 @@ body.chart-open main { max-width: 1400px; }
   grid-column: span 2;
 }
 
+.news-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.news-card-header .label { margin-bottom: 0; }
+
+.news-nav { display: flex; gap: 2px; }
+
+.news-nav-btn {
+  padding: 2px 8px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .news-ticker {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-height: 2.6em;
 }
 
+/* Fixed to exactly 3 lines so rotating between short and long headlines
+   doesn't resize the card. Longer headlines are clamped with an ellipsis
+   rather than growing the box; shorter ones just leave blank space below. */
 .news-headline {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  height: calc(1.35em * 3);
   color: var(--text);
   font-size: 1rem;
   font-weight: 600;
@@ -194,6 +218,81 @@ body.chart-open main { max-width: 1400px; }
 .news-outlet { font-weight: 600; }
 .news-sep { opacity: 0.6; }
 .news-stale { font-style: italic; }
+
+/* --- Horizontal trending tickers --- */
+
+.hticker-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.hticker {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.hticker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hticker-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.hticker-controls { display: flex; gap: 4px; }
+
+.hticker-controls .btn {
+  padding: 3px 7px;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.hticker-track-wrap {
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 9px 0;
+}
+
+.hticker.hidden .hticker-track-wrap { display: none; }
+
+.hticker-track {
+  display: inline-flex;
+  gap: 32px;
+  padding-left: 16px;
+  animation: hticker-scroll 50s linear infinite;
+  will-change: transform;
+}
+
+.hticker.paused .hticker-track { animation-play-state: paused; }
+
+@keyframes hticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.hticker-item {
+  display: inline-block;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.hticker-item:hover { text-decoration: underline; }
+
+.hticker-item-source { color: var(--muted); }
 
 .rates {
   display: grid;

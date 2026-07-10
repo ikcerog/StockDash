@@ -31,6 +31,33 @@
   <main>
     <section class="summary" id="summary-cards"></section>
 
+    <section class="hticker-row" id="hticker-row">
+      <div class="hticker" id="hticker-topics">
+        <div class="hticker-header">
+          <span class="hticker-label">Trending: Housing · Fintech · AI · Detroit</span>
+          <div class="hticker-controls">
+            <button type="button" class="btn btn-ghost icon-btn hticker-pause-btn" aria-label="Pause">⏸</button>
+            <button type="button" class="btn btn-ghost icon-btn hticker-hide-btn" aria-label="Hide">✕</button>
+          </div>
+        </div>
+        <div class="hticker-track-wrap">
+          <div class="hticker-track" id="hticker-topics-track"><span class="hticker-item muted">Loading…</span></div>
+        </div>
+      </div>
+      <div class="hticker" id="hticker-markets">
+        <div class="hticker-header">
+          <span class="hticker-label">Trending Markets (Polymarket)</span>
+          <div class="hticker-controls">
+            <button type="button" class="btn btn-ghost icon-btn hticker-pause-btn" aria-label="Pause">⏸</button>
+            <button type="button" class="btn btn-ghost icon-btn hticker-hide-btn" aria-label="Hide">✕</button>
+          </div>
+        </div>
+        <div class="hticker-track-wrap">
+          <div class="hticker-track" id="hticker-markets-track"><span class="hticker-item muted">Loading…</span></div>
+        </div>
+      </div>
+    </section>
+
     <section class="panel">
       <div class="panel-header">
         <h2>Rates</h2>
@@ -197,6 +224,13 @@
           account): show or hide table columns, switch to a denser compact
           layout, overlay symbols' price history on a chart, or toggle
           light/dark.
+        </p>
+        <h3>What are the scrolling ticker rows?</h3>
+        <p>
+          Two continuously-scrolling tickers: trending housing/fintech/AI/Detroit
+          headlines, and trending prediction markets from Polymarket (public
+          data, no account needed). Use the ⏸/▶ and ✕/👁 buttons on each to
+          pause or hide it — both preferences are saved in this browser.
         </p>
       </div>
     </div>

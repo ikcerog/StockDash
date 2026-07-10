@@ -33,8 +33,16 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.10.5";
+const APP_VERSION = "1.11.0";
 const CHANGELOG = [
+  {
+    version: "1.11.0",
+    date: "2026-07-10",
+    notes: [
+      "News ticker: outlet name now always shows (was missing for non-Google fallback sources), card height is now fixed so rotating headlines doesn't resize the layout, and added manual prev/next controls.",
+      "New: two continuously-scrolling ticker rows below the summary cards — trending housing/fintech/AI/Detroit headlines, and trending Polymarket prediction markets. Each can be paused or hidden independently.",
+    ],
+  },
   {
     version: "1.10.5",
     date: "2026-07-10",
@@ -288,11 +296,19 @@ function renderSummary() {
         <div class="value" id="stat-rkt">—</div>
       </div>
       <div class="stat-card news-card">
-        <div class="label">Mortgage news</div>
+        <div class="news-card-header">
+          <div class="label">Mortgage news</div>
+          <div class="news-nav">
+            <button type="button" class="btn btn-ghost icon-btn news-nav-btn" id="news-prev-btn" aria-label="Previous headline">‹</button>
+            <button type="button" class="btn btn-ghost icon-btn news-nav-btn" id="news-next-btn" aria-label="Next headline">›</button>
+          </div>
+        </div>
         <div class="news-ticker" id="news-ticker"><span class="muted">Loading…</span></div>
       </div>
     `;
     container.dataset.built = "true";
+    document.getElementById("news-prev-btn").addEventListener("click", () => navigateNews(-1));
+    document.getElementById("news-next-btn").addEventListener("click", () => navigateNews(1));
     // loadNews() may have already resolved (and no-opped, since this
     // skeleton didn't exist yet) before this ran; if so, show its result
     // now instead of waiting on the next rotation tick or 15-min refresh.
@@ -372,11 +388,104 @@ function renderNewsTicker(errorMessage) {
   `;
 }
 
-setInterval(() => {
+let newsRotateTimer = null;
+
+function scheduleNewsRotate() {
+  if (newsRotateTimer) clearInterval(newsRotateTimer);
+  newsRotateTimer = setInterval(() => {
+    if (newsItems.length === 0) return;
+    newsIndex = (newsIndex + 1) % newsItems.length;
+    renderNewsTicker();
+  }, 9000);
+}
+scheduleNewsRotate();
+
+// Manual prev/next also resets the auto-rotate timer, so clicking doesn't
+// immediately get followed by an auto-advance a moment later.
+function navigateNews(direction) {
   if (newsItems.length === 0) return;
-  newsIndex = (newsIndex + 1) % newsItems.length;
+  newsIndex = (newsIndex + direction + newsItems.length) % newsItems.length;
   renderNewsTicker();
-}, 9000);
+  scheduleNewsRotate();
+}
+
+// --- Horizontal trending tickers ---
+// Continuous CSS marquee scroll, no next/prev (per the mortgage news card
+// above, which does have manual nav). Each can be paused or hidden
+// independently, with the choice remembered per browser.
+
+const HTICKERS = [
+  { key: "topics", endpoint: "/api/trending/topics" },
+  { key: "markets", endpoint: "/api/trending/markets" },
+];
+
+const htickerPrefKey = (key, prop) => `stockdash:hticker:${key}:${prop}`;
+
+function updateHtickerButtons(el) {
+  const paused = el.classList.contains("paused");
+  const hidden = el.classList.contains("hidden");
+  const pauseBtn = el.querySelector(".hticker-pause-btn");
+  const hideBtn = el.querySelector(".hticker-hide-btn");
+  pauseBtn.textContent = paused ? "▶" : "⏸";
+  pauseBtn.setAttribute("aria-label", paused ? "Resume" : "Pause");
+  hideBtn.textContent = hidden ? "👁" : "✕";
+  hideBtn.setAttribute("aria-label", hidden ? "Show" : "Hide");
+}
+
+function renderHtickerItems(key, items) {
+  const track = document.getElementById(`hticker-${key}-track`);
+  if (!track) return;
+  if (items.length === 0) {
+    track.innerHTML = `<span class="hticker-item muted">Nothing trending right now.</span>`;
+    return;
+  }
+  const html = items
+    .map(
+      (item) => `
+        <a class="hticker-item" href="${escapeAttr(item.link)}" target="_blank" rel="noopener noreferrer">${escapeAttr(item.title)}${
+          item.source ? `<span class="hticker-item-source"> · ${escapeAttr(item.source)}</span>` : ""
+        }</a>
+      `,
+    )
+    .join("");
+  // Duplicated so the marquee animation (translateX -50%, in CSS) loops
+  // back into identical content instead of a visible jump.
+  track.innerHTML = html + html;
+}
+
+async function loadHticker(key, endpoint) {
+  try {
+    const data = await api(endpoint);
+    renderHtickerItems(key, data.items ?? []);
+  } catch {
+    renderHtickerItems(key, []);
+  }
+}
+
+function initHticker(key, endpoint) {
+  const el = document.getElementById(`hticker-${key}`);
+  if (!el) return;
+
+  el.classList.toggle("hidden", lsGet(htickerPrefKey(key, "hidden")) === "true");
+  el.classList.toggle("paused", lsGet(htickerPrefKey(key, "paused")) === "true");
+  updateHtickerButtons(el);
+
+  el.querySelector(".hticker-pause-btn").addEventListener("click", () => {
+    el.classList.toggle("paused");
+    lsSet(htickerPrefKey(key, "paused"), String(el.classList.contains("paused")));
+    updateHtickerButtons(el);
+  });
+  el.querySelector(".hticker-hide-btn").addEventListener("click", () => {
+    el.classList.toggle("hidden");
+    lsSet(htickerPrefKey(key, "hidden"), String(el.classList.contains("hidden")));
+    updateHtickerButtons(el);
+  });
+
+  loadHticker(key, endpoint);
+}
+
+HTICKERS.forEach(({ key, endpoint }) => initHticker(key, endpoint));
+setInterval(() => HTICKERS.forEach(({ key, endpoint }) => loadHticker(key, endpoint)), 15 * 60_000);
 
 function renderTable() {
   const body = document.getElementById("watchlist-body");
