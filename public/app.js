@@ -33,13 +33,13 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.10.2";
+const APP_VERSION = "1.10.3";
 const CHANGELOG = [
   {
-    version: "1.10.2",
+    version: "1.10.3",
     date: "2026-07-10",
     notes: [
-      "Deploy pipeline check: if you can see this version number, the Price/% chart toggle, grid backdrop, and full-headline news ticker below are current.",
+      "Deploy pipeline check #2: production branch is now set to main in Workers Builds. If you see this version number, pushes to main are deploying and promoting to production correctly again.",
     ],
   },
   {
