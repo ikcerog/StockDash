@@ -33,8 +33,15 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.10.0";
+const APP_VERSION = "1.10.1";
 const CHANGELOG = [
+  {
+    version: "1.10.1",
+    date: "2026-07-10",
+    notes: [
+      "News ticker now shows the full headline (wrapped, not truncated) plus outlet and timestamp, instead of a single ellipsized line.",
+    ],
+  },
   {
     version: "1.10.0",
     date: "2026-07-10",
@@ -260,7 +267,7 @@ function renderSummary() {
       </div>
       <div class="stat-card news-card">
         <div class="label">Mortgage news</div>
-        <div class="value news-ticker" id="news-ticker"><span class="muted">Loading…</span></div>
+        <div class="news-ticker" id="news-ticker"><span class="muted">Loading…</span></div>
       </div>
     `;
     container.dataset.built = "true";
@@ -304,6 +311,17 @@ async function loadNews(isRetry = false) {
   }
 }
 
+// Google News RSS doesn't include a byline/reporter field (Google
+// aggregates from many publishers and rarely surfaces author data in the
+// feed extract), so only outlet and timestamp are shown alongside the
+// headline.
+function fmtNewsTime(pubDate) {
+  if (!pubDate) return null;
+  const d = new Date(pubDate);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 function renderNewsTicker(errorMessage) {
   const el = document.getElementById("news-ticker");
   if (!el) return; // summary cards not built yet
@@ -318,10 +336,14 @@ function renderNewsTicker(errorMessage) {
     return;
   }
   const item = newsItems[newsIndex % newsItems.length];
+  const time = fmtNewsTime(item.pubDate);
   el.innerHTML = `
-    <a href="${escapeAttr(item.link)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(item.title)}">${item.title}</a>${
-      item.source ? `<span class="news-source"> — ${item.source}</span>` : ""
-    }
+    <a class="news-headline" href="${escapeAttr(item.link)}" target="_blank" rel="noopener noreferrer">${escapeAttr(item.title)}</a>
+    <div class="news-meta">
+      ${item.source ? `<span class="news-outlet">${escapeAttr(item.source)}</span>` : ""}
+      ${item.source && time ? `<span class="news-sep">·</span>` : ""}
+      ${time ? `<time class="news-time">${time}</time>` : ""}
+    </div>
   `;
 }
 
@@ -329,7 +351,7 @@ setInterval(() => {
   if (newsItems.length === 0) return;
   newsIndex = (newsIndex + 1) % newsItems.length;
   renderNewsTicker();
-}, 6000);
+}, 9000);
 
 function renderTable() {
   const body = document.getElementById("watchlist-body");

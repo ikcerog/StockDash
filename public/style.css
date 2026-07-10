@@ -157,27 +157,42 @@ body.chart-open main { max-width: 1400px; }
   font-weight: 600;
 }
 
-.news-card .value {
-  font-size: 0.95rem;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.news-card {
+  grid-column: span 2;
 }
 
-.news-ticker a {
-  color: inherit;
+.news-ticker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 2.6em;
+}
+
+.news-headline {
+  display: block;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
   text-decoration: none;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
-.news-ticker a:hover {
+.news-headline:hover {
   text-decoration: underline;
 }
 
-.news-source {
+.news-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
   color: var(--muted);
-  font-weight: 400;
 }
+
+.news-outlet { font-weight: 600; }
+.news-sep { opacity: 0.6; }
 
 .rates {
   display: grid;
