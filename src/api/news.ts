@@ -14,10 +14,12 @@ function isRelevant(item: FeedItem): boolean {
   return RELEVANCE_KEYWORDS.some((k) => haystack.includes(k));
 }
 
-// Tried in order; the first source that yields any items wins. Google News
-// is query-filtered and usually the best match, but its RSS endpoint
+// Fetched concurrently and merged (see fetchFeedWithFallback) rather than
+// stopping at the first source that yields results. Google News is
+// query-filtered and usually the best match, but its RSS endpoint
 // intermittently rate-limits/blocks cloud egress IPs (including Cloudflare
-// Workers').
+// Workers'), so leaning on it alone would leave the ticker single-outlet
+// whenever that happens.
 const NEWS_SOURCES: FeedSource[] = [
   {
     name: "Google News",

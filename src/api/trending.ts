@@ -18,6 +18,8 @@ const RELEVANCE_PATTERNS = [
   /fintech/i,
   /detroit/i,
   /home price/i,
+  /home sales/i,
+  /mortgage/i,
   /interest rate/i,
   /artificial intelligence/i,
   /\bai\b/i,
@@ -35,6 +37,7 @@ const TOPICS_SOURCES: FeedSource[] = [
   },
   { name: "TechCrunch", url: "https://techcrunch.com/feed/", filterRelevant: true },
   { name: "Crain's Detroit Business", url: "https://www.crainsdetroit.com/rss.xml", filterRelevant: true },
+  { name: "HousingWire", url: "https://www.housingwire.com/feed/", filterRelevant: true },
 ];
 
 trendingRoutes.get("/topics", async (c) => {

@@ -33,8 +33,15 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.12.0";
+const APP_VERSION = "1.13.0";
 const CHANGELOG = [
+  {
+    version: "1.13.0",
+    date: "2026-07-10",
+    notes: [
+      "Fixed the topics ticker (and mortgage news card) defaulting to a single outlet whenever Google News failed to load — sources are now fetched concurrently and interleaved so no one outlet dominates. Also added HousingWire as a third topics source.",
+    ],
+  },
   {
     version: "1.12.0",
     date: "2026-07-10",

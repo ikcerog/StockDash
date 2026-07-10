@@ -67,12 +67,13 @@ export interface FeedResult {
   fetchedAt?: string | null;
 }
 
-// Tries each source in order, returning the first that yields any items
-// (after relevance/recency filtering) and caching that result in D1. If
-// every live source fails or is empty, falls back to the last cached
-// result rather than returning nothing -- a transient block on one feed
-// (a real, observed failure mode with Google News RSS from cloud egress
-// IPs) shouldn't leave a ticker empty.
+// Fetches every source concurrently (rather than stopping at the first
+// that succeeds) and interleaves their items round-robin so one outlet
+// can't dominate the result just because another source -- most often
+// Google News, whose RSS endpoint intermittently rate-limits/blocks cloud
+// egress IPs, a real observed failure mode -- happened to fail or come back
+// empty. Falls back to the last cached merged result if every source fails,
+// rather than returning nothing.
 export async function fetchFeedWithFallback(
   db: D1Database,
   sources: FeedSource[],
@@ -81,23 +82,38 @@ export async function fetchFeedWithFallback(
   const cacheKey = `${opts.cacheKey}_ITEMS`;
   const cacheTimeKey = `${opts.cacheKey}_FETCHED_AT`;
 
-  for (const source of sources) {
-    try {
-      const xml = await fetchFeedXml(source.url);
-      let items = parseRssItems(xml, source.filterRelevant ? 20 : 10);
-      if (source.filterRelevant) items = items.filter(opts.relevanceCheck);
-      items = items
-        .filter((item) => isRecent(item, opts.maxAgeDays))
-        .map((item) => ({ ...item, source: item.source ?? source.name }))
-        .slice(0, opts.limit);
-      if (items.length === 0) continue;
+  const perSource = await Promise.all(
+    sources.map(async (source) => {
+      try {
+        const xml = await fetchFeedXml(source.url);
+        let items = parseRssItems(xml, source.filterRelevant ? 20 : 10);
+        if (source.filterRelevant) items = items.filter(opts.relevanceCheck);
+        return items
+          .filter((item) => isRecent(item, opts.maxAgeDays))
+          .map((item) => ({ ...item, source: item.source ?? source.name }));
+      } catch {
+        return [];
+      }
+    }),
+  );
 
-      await setSetting(db, cacheKey, JSON.stringify(items));
-      await setSetting(db, cacheTimeKey, new Date().toISOString());
-      return { items, source: source.name };
-    } catch {
-      continue; // try the next source
+  const merged: FeedItem[] = [];
+  const seenLinks = new Set<string>();
+  for (let round = 0; merged.length < opts.limit && perSource.some((list) => round < list.length); round++) {
+    for (const list of perSource) {
+      if (round >= list.length) continue;
+      const item = list[round];
+      if (seenLinks.has(item.link)) continue; // Google News and a publisher's own feed can surface the same story
+      seenLinks.add(item.link);
+      merged.push(item);
+      if (merged.length >= opts.limit) break;
     }
+  }
+
+  if (merged.length > 0) {
+    await setSetting(db, cacheKey, JSON.stringify(merged));
+    await setSetting(db, cacheTimeKey, new Date().toISOString());
+    return { items: merged, source: sources.map((s) => s.name).join(", ") };
   }
 
   const cached = await getSetting(db, cacheKey);
