@@ -360,6 +360,16 @@ body.chart-open main { max-width: 1400px; }
   flex-wrap: wrap;
 }
 
+/* Notifications panel: single "Send test email" button floats right of the
+   title on desktop, stacks under the title on mobile like the other panels. */
+.panel-header:has(> #test-email-btn) {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+
 .panel-header h2 {
   font-family: "Castoro Titling", Georgia, "Times New Roman", serif;
   font-size: 1.1rem;
@@ -390,6 +400,11 @@ body.chart-open main { max-width: 1400px; }
    window, making the chart drop below the table instead of beside it. */
 @media (max-width: 640px) {
   .workspace.chart-visible { grid-template-columns: 1fr; }
+
+  .panel-header:has(> #test-email-btn) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .workspace .panel { margin-bottom: 0; }
