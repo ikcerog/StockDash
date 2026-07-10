@@ -76,6 +76,8 @@ body.chart-open main { max-width: 1400px; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 10px;
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 20px 16px;
@@ -91,7 +93,28 @@ body.chart-open main { max-width: 1400px; }
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    padding: 16px 16px 12px;
+  }
+  .topbar h1 {
+    font-size: 1.5rem;
+  }
+  .topbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  #user-email,
+  #last-updated {
+    flex-basis: 100%;
+    order: -1;
+  }
 }
 
 .icon-btn {
