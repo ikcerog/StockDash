@@ -73,10 +73,10 @@ const MARKETS_CACHE_TIME_KEY = "TRENDING_MARKETS_FETCHED_AT";
 // verified against a live response in this environment.
 const MARKETS_URL =
   "https://gamma-api.polymarket.com/markets?active=true&closed=false&order=volume24hr&ascending=false&limit=100";
-// Minimum number of on-topic markets before we stop backfilling with
-// general top-volume markets; keeps the ticker from being sparse/empty on
-// days when few housing/Fed markets are actively trading.
-const MIN_RELEVANT_MARKETS = 6;
+// Ticker shows on-topic markets first, then backfills remaining slots with
+// general top-volume markets so it's never sparse on days when few
+// housing/Fed markets are actively trading.
+const TICKER_SIZE = 10;
 
 const MARKET_RELEVANCE_PATTERNS = [
   /housing/i,
@@ -145,7 +145,7 @@ trendingRoutes.get("/markets", async (c) => {
     // aren't enough to fill the ticker.
     const relevant = parsed.filter(isMarketRelevant);
     const rest = parsed.filter((m) => !isMarketRelevant(m));
-    const items = [...relevant, ...rest.slice(0, Math.max(0, MIN_RELEVANT_MARKETS - relevant.length))].slice(0, 10);
+    const items = [...relevant, ...rest].slice(0, TICKER_SIZE);
     if (items.length === 0) throw new Error("no usable markets in response");
 
     await setSetting(c.env.DB, MARKETS_CACHE_KEY, JSON.stringify(items));
