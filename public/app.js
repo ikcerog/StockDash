@@ -10,8 +10,15 @@ const fmtAxisDate = (value) =>
 
 const uniqueTicks = (values) => [...new Set(values.map((v) => v.toFixed(6)))].map(parseFloat);
 
-const APP_VERSION = "1.9.0";
+const APP_VERSION = "1.9.1";
 const CHANGELOG = [
+  {
+    version: "1.9.1",
+    date: "2026-07-10",
+    notes: [
+      "Fixed the news ticker sometimes not appearing on first load (auto-retries once, and a manual Retry link on failure).",
+    ],
+  },
   {
     version: "1.9.0",
     date: "2026-07-10",
@@ -222,6 +229,12 @@ function renderSummary() {
       </div>
     `;
     container.dataset.built = "true";
+    // loadNews() may have already resolved (and no-opped, since this
+    // skeleton didn't exist yet) before this ran; if so, show its result
+    // now instead of waiting on the next rotation tick or 15-min refresh.
+    // If it hasn't resolved yet, leave the "Loading…" placeholder alone —
+    // loadNews() will render into #news-ticker itself once it settles.
+    if (newsItems.length > 0) renderNewsTicker();
   }
 
   document.getElementById("stat-tracked").textContent = rows.length;
@@ -238,22 +251,35 @@ function renderSummary() {
 let newsItems = [];
 let newsIndex = 0;
 
-async function loadNews() {
+async function loadNews(isRetry = false) {
   try {
     const data = await api("/api/news");
     newsItems = data.items ?? [];
-  } catch {
+    newsIndex = 0;
+    renderNewsTicker();
+  } catch (err) {
+    if (!isRetry) {
+      // A page-load-time fetch can lose a race with Access session setup;
+      // one delayed retry covers that without waiting on the 15-min refresh.
+      setTimeout(() => loadNews(true), 3000);
+      return;
+    }
     newsItems = [];
+    renderNewsTicker(err.message);
   }
-  newsIndex = 0;
-  renderNewsTicker();
 }
 
-function renderNewsTicker() {
+function renderNewsTicker(errorMessage) {
   const el = document.getElementById("news-ticker");
   if (!el) return; // summary cards not built yet
   if (newsItems.length === 0) {
-    el.innerHTML = `<span class="muted">No news available.</span>`;
+    el.innerHTML = errorMessage
+      ? `<span class="muted">News unavailable. <a href="#" id="news-retry-link">Retry</a></span>`
+      : `<span class="muted">No news available.</span>`;
+    document.getElementById("news-retry-link")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      loadNews();
+    });
     return;
   }
   const item = newsItems[newsIndex % newsItems.length];
