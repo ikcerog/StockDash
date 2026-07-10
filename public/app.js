@@ -33,8 +33,16 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.10.4";
+const APP_VERSION = "1.10.5";
 const CHANGELOG = [
+  {
+    version: "1.10.5",
+    date: "2026-07-10",
+    notes: [
+      "Patch notes and FAQ modals now close via an X in the top-right corner instead of a button below the content.",
+      "News ticker headlines are now capped at 7 days old across all sources (previously only Google News was date-limited).",
+    ],
+  },
   {
     version: "1.10.4",
     date: "2026-07-10",

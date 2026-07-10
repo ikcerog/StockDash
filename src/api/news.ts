@@ -19,6 +19,8 @@ const NEWS_QUERY =
 
 const RELEVANCE_KEYWORDS = ["mortgage", "rocket", "uwm", "wholesale", "home loan", "refinance", "housing market"];
 
+const MAX_AGE_DAYS = 7;
+
 // Tried in order; the first source that yields any items wins. Google News
 // is query-filtered and usually the best match, but its RSS endpoint
 // intermittently rate-limits/blocks cloud egress IPs (including Cloudflare
@@ -64,6 +66,18 @@ function isRelevant(item: NewsItem): boolean {
   return RELEVANCE_KEYWORDS.some((k) => haystack.includes(k));
 }
 
+// Google's own query already scopes to `when:3d`, but the publisher feeds
+// (HousingWire/CNBC) aren't date-scoped at all, so this is enforced
+// uniformly across every source rather than trusting each feed's own
+// freshness. Items with no parseable pubDate are dropped rather than
+// assumed recent.
+function isRecent(item: NewsItem): boolean {
+  if (!item.pubDate) return false;
+  const published = new Date(item.pubDate).getTime();
+  if (Number.isNaN(published)) return false;
+  return Date.now() - published <= MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+}
+
 async function fetchFeed(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
@@ -80,8 +94,9 @@ newsRoutes.get("/", async (c) => {
   for (const source of NEWS_SOURCES) {
     try {
       const xml = await fetchFeed(source.url);
-      let items = parseRssItems(xml, source.filterRelevant ? 20 : 5);
-      if (source.filterRelevant) items = items.filter(isRelevant).slice(0, 5);
+      let items = parseRssItems(xml, source.filterRelevant ? 20 : 10);
+      if (source.filterRelevant) items = items.filter(isRelevant);
+      items = items.filter(isRecent).slice(0, 5);
       if (items.length === 0) continue;
 
       await setSetting(c.env.DB, NEWS_CACHE_KEY, JSON.stringify(items));

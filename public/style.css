@@ -418,6 +418,7 @@ fieldset legend { font-size: 0.8rem; color: var(--muted); padding: 0 4px; }
 #patchnotes-dialog { width: min(480px, 92vw); }
 
 .patchnotes {
+  position: relative;
   padding: 20px;
   max-height: 70vh;
   overflow-y: auto;
@@ -426,7 +427,17 @@ fieldset legend { font-size: 0.8rem; color: var(--muted); padding: 0 4px; }
   gap: 4px;
 }
 
-.patchnotes h2 { margin: 0 0 8px; }
+.dialog-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 0.9rem;
+}
+
+.patchnotes h2 { margin: 0 40px 8px 0; }
 
 .patchnotes .entry { margin-bottom: 12px; }
 
