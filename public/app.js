@@ -33,8 +33,15 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.11.0";
+const APP_VERSION = "1.12.0";
 const CHANGELOG = [
+  {
+    version: "1.12.0",
+    date: "2026-07-10",
+    notes: [
+      "Polymarket ticker now favors housing/real estate/mortgage/Fed/economy markets (rate decisions, inflation, jobs reports, recession, etc.) instead of just top volume across all categories, backfilling with general top-volume markets if too few on-topic ones are trending.",
+    ],
+  },
   {
     version: "1.11.0",
     date: "2026-07-10",
