@@ -1,4 +1,12 @@
-import type { AlertLogEntry, AlertStateEntry, AlertType, WatchlistInput, WatchlistItem } from "../types";
+import type {
+  AlertLogEntry,
+  AlertStateEntry,
+  AlertType,
+  OneTimeAlert,
+  OneTimeAlertInput,
+  WatchlistInput,
+  WatchlistItem,
+} from "../types";
 
 // Copy the baseline symbols into a user's watchlist on their first visit.
 // user_seeded records who has been seeded, so users who later delete a
@@ -188,4 +196,54 @@ export async function listAlertStates(db: D1Database, userEmail: string): Promis
     .bind(userEmail)
     .all<AlertStateEntry>();
   return results;
+}
+
+// --- One-time alerts ---
+
+export async function listOneTimeAlerts(db: D1Database, userEmail: string): Promise<OneTimeAlert[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM one_time_alerts
+       WHERE user_email = ?
+       ORDER BY triggered_at IS NULL DESC, symbol ASC, price ASC`,
+    )
+    .bind(userEmail)
+    .all<OneTimeAlert>();
+  return results;
+}
+
+// Pending across every user, for the scheduled alert check.
+export async function listPendingOneTimeAlerts(db: D1Database): Promise<OneTimeAlert[]> {
+  const { results } = await db
+    .prepare("SELECT * FROM one_time_alerts WHERE triggered_at IS NULL")
+    .all<OneTimeAlert>();
+  return results;
+}
+
+export async function createOneTimeAlert(
+  db: D1Database,
+  userEmail: string,
+  input: OneTimeAlertInput,
+): Promise<OneTimeAlert> {
+  const result = await db
+    .prepare(
+      `INSERT INTO one_time_alerts (user_email, symbol, direction, price, note)
+       VALUES (?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .bind(userEmail, input.symbol.toUpperCase(), input.direction, input.price, input.note ?? null)
+    .first<OneTimeAlert>();
+  if (!result) throw new Error("Failed to create one-time alert");
+  return result;
+}
+
+export async function deleteOneTimeAlert(db: D1Database, id: number, userEmail: string): Promise<void> {
+  await db.prepare("DELETE FROM one_time_alerts WHERE id = ? AND user_email = ?").bind(id, userEmail).run();
+}
+
+export async function markOneTimeAlertTriggered(db: D1Database, id: number): Promise<void> {
+  await db
+    .prepare("UPDATE one_time_alerts SET triggered_at = datetime('now') WHERE id = ? AND triggered_at IS NULL")
+    .bind(id)
+    .run();
 }

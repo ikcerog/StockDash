@@ -135,6 +135,21 @@
 
     <section class="panel">
       <div class="panel-header">
+        <h2>One-time alerts</h2>
+        <button id="add-one-time-btn" class="btn btn-primary">+ New one-time alert</button>
+      </div>
+      <p class="muted panel-blurb">
+        Fires once when the price crosses your target, then stays dormant.
+        Unlike the ±% and price thresholds on a watchlist row, one-time
+        alerts don't re-arm at the next trading day.
+      </p>
+      <ul id="one-time-list" class="alert-log">
+        <li class="muted">Loading…</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
         <h2>Notifications <span id="notif-waiting-badge" class="notif-count-badge" hidden></span></h2>
         <button id="test-email-btn" class="btn btn-ghost">Send test email</button>
       </div>
@@ -179,6 +194,31 @@
     </form>
   </dialog>
 
+  <dialog id="one-time-dialog">
+    <form id="one-time-form" method="dialog">
+      <h2>New one-time alert</h2>
+      <label>Symbol
+        <input type="text" name="symbol" placeholder="AAPL" required autocomplete="off" />
+      </label>
+      <label>Fire when price is
+        <select name="direction" required>
+          <option value="above">at or above</option>
+          <option value="below">at or below</option>
+        </select>
+      </label>
+      <label>Target price
+        <input type="number" step="any" min="0" name="price" placeholder="e.g. 250" required />
+      </label>
+      <label>Note <span class="muted">(optional)</span>
+        <input type="text" name="note" placeholder="e.g. sell half" maxlength="200" />
+      </label>
+      <div class="dialog-actions">
+        <button type="button" id="one-time-cancel-btn" class="btn btn-ghost">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create alert</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="patchnotes-dialog">
     <div class="patchnotes">
       <button type="button" id="patchnotes-close-btn" class="btn btn-ghost icon-btn dialog-close-btn" aria-label="Close">✕</button>
@@ -205,12 +245,25 @@
         </p>
         <h3>How do alerts work?</h3>
         <p>
-          Each tracked symbol can have an optional price-high, price-low,
-          and/or % day-change threshold. % day-change accepts a
-          comma-separated list (e.g. 1, 3, 5, 10) so each move size fires
-          its own alert. A background check runs every 15 minutes during
-          US market hours; you get an email the moment a threshold is
-          newly crossed, not repeatedly while it holds.
+          Every signed-in user automatically gets email alerts at
+          <strong>±6.5%</strong> and <strong>±10%</strong> day moves on
+          every stock they track — no configuration needed and no login
+          required to receive them. On top of that, each tracked symbol
+          can have an optional price-high, price-low, and/or
+          extra % day-change thresholds. % day-change accepts a
+          comma-separated list (e.g. 1, 3, 5, 10) so each move size
+          fires its own alert. A background check runs every 15 minutes
+          during US market hours; you get an email the moment a threshold
+          is newly crossed, not repeatedly while it holds. All of these
+          reset at the next trading day.
+        </p>
+        <h3>What's a one-time alert?</h3>
+        <p>
+          A price target that fires exactly once and stays dormant
+          afterwards — it doesn't reset overnight. Use it for
+          "email me when RKT hits $50" style triggers you don't want
+          re-firing every day the condition holds. Configure them in the
+          One-time alerts panel below the watchlist.
         </p>
         <h3>Who can see this?</h3>
         <p>

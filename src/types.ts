@@ -64,3 +64,24 @@ export interface AlertStateEntry {
   last_value: number | null;
   updated_at: string;
 }
+
+// Persistent, fire-once price alert. Independent of the watchlist entry's
+// resettable thresholds: once triggered_at is set, the row stays dormant
+// and is never re-evaluated.
+export interface OneTimeAlert {
+  id: number;
+  user_email: string;
+  symbol: string;
+  direction: "above" | "below";
+  price: number;
+  note: string | null;
+  created_at: string;
+  triggered_at: string | null;
+}
+
+export interface OneTimeAlertInput {
+  symbol: string;
+  direction: "above" | "below";
+  price: number;
+  note?: string | null;
+}

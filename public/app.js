@@ -33,8 +33,22 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.15.0";
+const APP_VERSION = "1.16.0";
+// Kept in sync with DEFAULT_PERCENT_THRESHOLDS in src/lib/alerts.ts (also
+// exposed at GET /api/alerts/defaults, which we fetch below to overwrite
+// this if the server changes it). Rendering the waiting list wants the
+// values available synchronously on first paint, so we seed with the
+// current values here.
+let DEFAULT_PERCENT_THRESHOLDS = [6.5, 10];
 const CHANGELOG = [
+  {
+    version: "1.16.0",
+    date: "2026-07-14",
+    notes: [
+      "Every user now gets automatic ±6.5% and ±10% day-move alerts on every stock they track — no configuration needed, no login required to receive them. Custom % thresholds set on a row are added on top.",
+      'New "One-time alerts" panel below the watchlist: set a target price + direction (above/below) and get a single email when it crosses, without it re-arming at the next trading day like the resettable thresholds do.',
+    ],
+  },
   {
     version: "1.15.0",
     date: "2026-07-10",
@@ -622,7 +636,10 @@ function renderColumnsMenu() {
 // Builds the "waiting" notifications list: one entry per configured
 // threshold (price_high/price_low/each percent_change value) that hasn't
 // fired yet, or fired previously but has since reset (alert_state.active
-// is only 1 while a fired alert's condition still holds).
+// is only 1 while a fired alert's condition still holds). Includes the
+// DEFAULT_PERCENT_THRESHOLDS every watchlist entry is implicitly evaluated
+// against on the server, tagged so the UI can visually distinguish
+// automatic defaults from thresholds the user set.
 function computeWaitingAlerts(watchlistRows, states) {
   const stateByKey = new Map(states.map((s) => [`${s.watchlist_id}:${s.alert_type}:${s.threshold_key}`, s]));
   const isWaiting = (watchlistId, alertType, thresholdKey) =>
@@ -636,12 +653,25 @@ function computeWaitingAlerts(watchlistRows, states) {
     if (row.price_low !== null && isWaiting(row.id, "price_low", "")) {
       waiting.push({ symbol: row.symbol, label: `alert when price falls to $${Number(row.price_low).toFixed(2)}` });
     }
-    if (row.percent_change_threshold) {
-      for (const raw of row.percent_change_threshold.split(",")) {
-        const threshold = raw.trim();
-        if (threshold && isWaiting(row.id, "percent_change", threshold)) {
-          waiting.push({ symbol: row.symbol, label: `alert on day move past ±${threshold}%` });
-        }
+    const userThresholds = row.percent_change_threshold
+      ? row.percent_change_threshold.split(",").map((s) => Number(s.trim())).filter(Number.isFinite)
+      : [];
+    // Merge user thresholds + defaults so both show as waiting entries.
+    // Dedupe: if a user configured e.g. 6.5, it's their entry, not a default.
+    const userSet = new Set(userThresholds);
+    for (const n of userThresholds) {
+      if (isWaiting(row.id, "percent_change", String(n))) {
+        waiting.push({ symbol: row.symbol, label: `alert on day move past ±${n}%` });
+      }
+    }
+    for (const n of DEFAULT_PERCENT_THRESHOLDS) {
+      if (userSet.has(n)) continue;
+      if (isWaiting(row.id, "percent_change", String(n))) {
+        waiting.push({
+          symbol: row.symbol,
+          label: `default alert on day move past ±${n}%`,
+          isDefault: true,
+        });
       }
     }
   }
@@ -649,16 +679,37 @@ function computeWaitingAlerts(watchlistRows, states) {
   return waiting;
 }
 
+async function loadDefaultThresholds() {
+  try {
+    const data = await api("/api/alerts/defaults");
+    if (Array.isArray(data?.percent_change)) {
+      DEFAULT_PERCENT_THRESHOLDS = data.percent_change;
+    }
+  } catch {
+    // Falls back to the hardcoded seed; harmless if the server refuses.
+  }
+}
+
 async function renderAlertLog() {
   const list = document.getElementById("alert-log");
   const badge = document.getElementById("notif-waiting-badge");
-  const [sent, states] = await Promise.all([api("/api/alerts?limit=20"), api("/api/alerts/state")]);
+  const [sent, states, oneTime] = await Promise.all([
+    api("/api/alerts?limit=20"),
+    api("/api/alerts/state"),
+    api("/api/alerts/one-time"),
+  ]);
   const waiting = computeWaitingAlerts(rows, states);
 
-  badge.hidden = waiting.length === 0;
-  badge.textContent = waiting.length === 1 ? "1 waiting" : `${waiting.length} waiting`;
+  // Pending one-time alerts count as waiting too, and triggered ones join
+  // the sent feed so recent one-time fires don't get invisible.
+  const pendingOneTime = oneTime.filter((a) => a.triggered_at === null);
+  const triggeredOneTime = oneTime.filter((a) => a.triggered_at !== null);
 
-  if (waiting.length === 0 && sent.length === 0) {
+  const totalWaiting = waiting.length + pendingOneTime.length;
+  badge.hidden = totalWaiting === 0;
+  badge.textContent = totalWaiting === 1 ? "1 waiting" : `${totalWaiting} waiting`;
+
+  if (totalWaiting === 0 && sent.length === 0 && triggeredOneTime.length === 0) {
     list.innerHTML = `<li class="muted">No notifications configured yet.</li>`;
     return;
   }
@@ -666,8 +717,25 @@ async function renderAlertLog() {
   const waitingHtml = waiting.map(
     (w) => `
       <li class="notif-waiting">
-        <span class="notif-badge notif-badge-waiting">Waiting</span>
+        <span class="notif-badge ${w.isDefault ? "notif-badge-default" : "notif-badge-waiting"}">${w.isDefault ? "Default" : "Waiting"}</span>
         ${w.symbol} — ${w.label}
+      </li>
+    `,
+  );
+  const oneTimeWaitingHtml = pendingOneTime.map(
+    (a) => `
+      <li class="notif-waiting">
+        <span class="notif-badge notif-badge-waiting">One-time</span>
+        ${a.symbol} — alert when price is ${a.direction === "above" ? "at or above" : "at or below"} $${Number(a.price).toFixed(2)}${a.note ? ` — <span class="muted">${escapeAttr(a.note)}</span>` : ""}
+      </li>
+    `,
+  );
+  const oneTimeTriggeredHtml = triggeredOneTime.map(
+    (a) => `
+      <li>
+        <span class="notif-badge notif-badge-triggered">Triggered</span>
+        ${a.symbol} — one-time ${a.direction} $${Number(a.price).toFixed(2)} fired${a.note ? ` (${escapeAttr(a.note)})` : ""}
+        <span class="alert-time">${new Date(a.triggered_at.replace(" ", "T") + "Z").toLocaleString()}</span>
       </li>
     `,
   );
@@ -680,7 +748,42 @@ async function renderAlertLog() {
       </li>
     `,
   );
-  list.innerHTML = waitingHtml.concat(sentHtml).join("");
+  list.innerHTML = waitingHtml.concat(oneTimeWaitingHtml, sentHtml, oneTimeTriggeredHtml).join("");
+}
+
+async function renderOneTimeList() {
+  const list = document.getElementById("one-time-list");
+  try {
+    const entries = await api("/api/alerts/one-time");
+    if (entries.length === 0) {
+      list.innerHTML = `<li class="muted">No one-time alerts yet. Click "New one-time alert" to add one.</li>`;
+      return;
+    }
+    list.innerHTML = entries
+      .map(
+        (a) => `
+          <li data-id="${a.id}" class="one-time-row">
+            <span class="notif-badge ${a.triggered_at ? "notif-badge-triggered" : "notif-badge-waiting"}">${a.triggered_at ? "Triggered" : "Waiting"}</span>
+            <strong>${a.symbol}</strong>
+            <span>${a.direction === "above" ? "≥" : "≤"} $${Number(a.price).toFixed(2)}</span>
+            ${a.triggered_at ? `<span class="alert-time">fired ${new Date(a.triggered_at.replace(" ", "T") + "Z").toLocaleString()}</span>` : ""}
+            <button class="btn btn-ghost btn-danger one-time-delete-btn" aria-label="Delete alert">Delete</button>
+            ${a.note ? `<span class="one-time-note">${escapeAttr(a.note)}</span>` : ""}
+          </li>
+        `,
+      )
+      .join("");
+    list.querySelectorAll(".one-time-delete-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        const id = Number(e.target.closest("li").dataset.id);
+        if (!confirm("Delete this one-time alert?")) return;
+        await api(`/api/alerts/one-time/${id}`, { method: "DELETE" });
+        await Promise.all([renderOneTimeList(), renderAlertLog()]);
+      });
+    });
+  } catch (err) {
+    list.innerHTML = `<li class="muted">Couldn't load one-time alerts: ${escapeAttr(err.message)}</li>`;
+  }
 }
 
 async function renderRates() {
@@ -729,7 +832,7 @@ async function refreshAll() {
   // renderAlertLog reads the `rows` global that loadWatchlist populates, so it
   // must go after, not run concurrently with it.
   await loadWatchlist();
-  await Promise.all([renderAlertLog(), renderRates()]);
+  await Promise.all([renderAlertLog(), renderOneTimeList(), renderRates()]);
 }
 
 function openDialog(row) {
@@ -1219,6 +1322,45 @@ api("/api/me")
     document.getElementById("user-email").textContent = me.email;
   })
   .catch(() => {});
+
+// --- One-time alert dialog ---
+
+const oneTimeDialog = document.getElementById("one-time-dialog");
+const oneTimeForm = document.getElementById("one-time-form");
+
+document.getElementById("add-one-time-btn").addEventListener("click", () => {
+  oneTimeForm.reset();
+  // Prefill Symbol with the current chart symbol if we have one, otherwise
+  // the first watched symbol — a small nudge toward the common case of
+  // setting an alert on a stock you're already tracking.
+  const preferred = chartSymbols[0] || rows[0]?.symbol;
+  if (preferred) oneTimeForm.elements.symbol.value = preferred;
+  oneTimeDialog.showModal();
+});
+document.getElementById("one-time-cancel-btn").addEventListener("click", () => oneTimeDialog.close());
+
+oneTimeForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(oneTimeForm).entries());
+  const body = {
+    symbol: data.symbol,
+    direction: data.direction,
+    price: Number(data.price),
+    note: data.note || null,
+  };
+  try {
+    await api("/api/alerts/one-time", { method: "POST", body: JSON.stringify(body) });
+    oneTimeDialog.close();
+    await Promise.all([renderOneTimeList(), renderAlertLog()]);
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// Server-side list can drift from the hardcoded seed if the constant is
+// updated without shipping a matching app.js; fetch once so the waiting
+// list stays truthful after that.
+loadDefaultThresholds().then(() => renderAlertLog().catch(() => {}));
 
 refreshAll();
 setInterval(refreshAll, 60_000);

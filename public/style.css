@@ -548,6 +548,43 @@ tr:last-child td { border-bottom: none; }
   margin-top: 2px;
 }
 
+.notif-badge-default {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  opacity: 0.7;
+}
+
+.notif-badge-triggered {
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.panel-blurb {
+  padding: 0 18px 8px;
+  font-size: 0.85rem;
+  margin: -4px 0 4px;
+}
+
+.one-time-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.one-time-row .one-time-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  flex-basis: 100%;
+  margin-top: 2px;
+}
+
+.one-time-row .btn-danger {
+  margin-left: auto;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+}
+
 dialog {
   border: none;
   border-radius: var(--radius);
