@@ -7,7 +7,7 @@ import {
   listAlertStates,
   listOneTimeAlerts,
 } from "../lib/db";
-import { DEFAULT_PERCENT_THRESHOLDS } from "../lib/alerts";
+import { DEFAULT_ALERT_SYMBOLS, DEFAULT_PERCENT_THRESHOLDS } from "../lib/alerts";
 import { sendAlertEmail } from "../lib/email";
 
 export const alertsRoutes = new Hono<AppEnv>();
@@ -25,11 +25,15 @@ alertsRoutes.get("/state", async (c) => {
   return c.json(states);
 });
 
-// The implicit percent-change thresholds every watchlist entry is evaluated
-// against in addition to any user-configured ones. The UI reads this so it
-// can render them alongside custom thresholds without hardcoding the list.
+// The implicit percent-change thresholds, plus the symbols they apply to,
+// on top of any user-configured percent_change_threshold on the row. UI
+// reads this so it can render them alongside custom thresholds without
+// hardcoding the list.
 alertsRoutes.get("/defaults", (c) => {
-  return c.json({ percent_change: DEFAULT_PERCENT_THRESHOLDS });
+  return c.json({
+    percent_change: DEFAULT_PERCENT_THRESHOLDS,
+    symbols: DEFAULT_ALERT_SYMBOLS,
+  });
 });
 
 alertsRoutes.post("/test", async (c) => {

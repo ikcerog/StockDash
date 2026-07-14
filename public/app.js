@@ -33,19 +33,27 @@ function smoothPath(points) {
   return d;
 }
 
-const APP_VERSION = "1.16.0";
-// Kept in sync with DEFAULT_PERCENT_THRESHOLDS in src/lib/alerts.ts (also
-// exposed at GET /api/alerts/defaults, which we fetch below to overwrite
-// this if the server changes it). Rendering the waiting list wants the
-// values available synchronously on first paint, so we seed with the
-// current values here.
+const APP_VERSION = "1.16.1";
+// Kept in sync with DEFAULT_PERCENT_THRESHOLDS + DEFAULT_ALERT_SYMBOLS in
+// src/lib/alerts.ts (also exposed at GET /api/alerts/defaults, which we
+// fetch below to overwrite these if the server changes them). Rendering
+// the waiting list wants the values available synchronously on first
+// paint, so we seed with the current values here.
 let DEFAULT_PERCENT_THRESHOLDS = [6.5, 10];
+let DEFAULT_ALERT_SYMBOLS = new Set(["RKT"]);
 const CHANGELOG = [
+  {
+    version: "1.16.1",
+    date: "2026-07-14",
+    notes: [
+      "Scoped the new automatic ±6.5% / ±10% day-move alerts to RKT only (not every tracked stock, which was a scope error in 1.16.0). Custom % thresholds you set on any row are unchanged and still fire as before.",
+    ],
+  },
   {
     version: "1.16.0",
     date: "2026-07-14",
     notes: [
-      "Every user now gets automatic ±6.5% and ±10% day-move alerts on every stock they track — no configuration needed, no login required to receive them. Custom % thresholds set on a row are added on top.",
+      "New automatic ±6.5% and ±10% day-move alerts on RKT for every user tracking it — no configuration needed, no login required to receive them. Custom % thresholds set on a row are added on top.",
       'New "One-time alerts" panel below the watchlist: set a target price + direction (above/below) and get a single email when it crosses, without it re-arming at the next trading day like the resettable thresholds do.',
     ],
   },
@@ -664,14 +672,16 @@ function computeWaitingAlerts(watchlistRows, states) {
         waiting.push({ symbol: row.symbol, label: `alert on day move past ±${n}%` });
       }
     }
-    for (const n of DEFAULT_PERCENT_THRESHOLDS) {
-      if (userSet.has(n)) continue;
-      if (isWaiting(row.id, "percent_change", String(n))) {
-        waiting.push({
-          symbol: row.symbol,
-          label: `default alert on day move past ±${n}%`,
-          isDefault: true,
-        });
+    if (DEFAULT_ALERT_SYMBOLS.has(row.symbol)) {
+      for (const n of DEFAULT_PERCENT_THRESHOLDS) {
+        if (userSet.has(n)) continue;
+        if (isWaiting(row.id, "percent_change", String(n))) {
+          waiting.push({
+            symbol: row.symbol,
+            label: `default alert on day move past ±${n}%`,
+            isDefault: true,
+          });
+        }
       }
     }
   }
@@ -684,6 +694,9 @@ async function loadDefaultThresholds() {
     const data = await api("/api/alerts/defaults");
     if (Array.isArray(data?.percent_change)) {
       DEFAULT_PERCENT_THRESHOLDS = data.percent_change;
+    }
+    if (Array.isArray(data?.symbols)) {
+      DEFAULT_ALERT_SYMBOLS = new Set(data.symbols);
     }
   } catch {
     // Falls back to the hardcoded seed; harmless if the server refuses.

@@ -51,9 +51,10 @@ function evaluateConditions(item: WatchlistItem, quote: Quote): Condition[] {
   }
 
   // Includes DEFAULT_PERCENT_THRESHOLDS (currently 6.5% and 10%) on top of
-  // the user's list, so every watchlist entry gets those alerts without any
-  // per-user configuration.
-  for (const threshold of resolvePercentThresholds(item.percent_change_threshold)) {
+  // the user's list for symbols in DEFAULT_ALERT_SYMBOLS (currently RKT),
+  // so every user tracking RKT gets those alerts without any configuration.
+  // Other symbols only use the user's own list.
+  for (const threshold of resolvePercentThresholds(item.symbol, item.percent_change_threshold)) {
     conditions.push({
       type: "percent_change",
       thresholdKey: String(threshold),
